@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, and, sql } from "drizzle-orm";
 import { ratings, albums, tracks, feedEvents } from "@groovelog/db";
+import type { DB } from "@groovelog/db";
 import {
   upsertRatingSchema,
   deleteRatingSchema,
@@ -26,7 +27,7 @@ async function checkRateLimit(
 }
 
 async function getTargetTitle(
-  db: typeof import("@groovelog/db").db,
+  db: DB,
   targetType: "album" | "track",
   targetId: string
 ): Promise<{ title: string; coverUrl: string | null; spotifyId: string }> {

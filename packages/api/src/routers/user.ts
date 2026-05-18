@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, lt, sql, inArray } from "drizzle-orm";
 import { users, follows, ratings, reviews, reviewLikes, feedEvents, albums, tracks, artists } from "@groovelog/db";
-import type { RatedPayload, ReviewedPayload } from "@groovelog/db";
+import type { DB, RatedPayload, ReviewedPayload } from "@groovelog/db";
 import {
   getUserProfileSchema,
   followUserSchema,
@@ -12,7 +12,7 @@ import {
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 
 async function enrichActivity<T extends { type: string; payload: unknown }>(
-  db: typeof import("@groovelog/db").db,
+  db: DB,
   items: T[]
 ): Promise<Array<T & { reviewBody: string | undefined; likeCount: number | undefined; artistName: string | undefined }>> {
   const reviewIds = new Set<string>();

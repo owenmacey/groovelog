@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, inArray, desc, gte, sql } from "drizzle-orm";
 import { artists, albums, tracks, ratings } from "@groovelog/db";
+import type { DB } from "@groovelog/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 import {
   getSpotifyClient,
@@ -17,7 +18,7 @@ import type {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function upsertArtist(
-  ctx: { db: typeof import("@groovelog/db").db },
+  ctx: { db: DB },
   artist: SpotifyArtistSimple & { images?: Array<{ url: string }>; genres?: string[]; popularity?: number }
 ) {
   const [row] = await ctx.db
@@ -47,7 +48,7 @@ async function upsertArtist(
 }
 
 async function upsertAlbum(
-  ctx: { db: typeof import("@groovelog/db").db },
+  ctx: { db: DB },
   spotifyAlbum: SpotifyAlbumSimple,
   artistId: string
 ) {
@@ -81,7 +82,7 @@ async function upsertAlbum(
 }
 
 async function upsertTrack(
-  ctx: { db: typeof import("@groovelog/db").db },
+  ctx: { db: DB },
   spotifyTrack: SpotifyTrackSimple,
   albumId: string,
   artistId: string
@@ -115,7 +116,7 @@ async function upsertTrack(
 }
 
 async function getRatingStats(
-  ctx: { db: typeof import("@groovelog/db").db },
+  ctx: { db: DB },
   targetType: "album" | "track",
   targetId: string
 ) {
@@ -139,7 +140,7 @@ async function getRatingStats(
 }
 
 async function getUserRatingForTarget(
-  ctx: { db: typeof import("@groovelog/db").db; session: { user: { id: string } } | null },
+  ctx: { db: DB; session: { user: { id: string } } | null },
   targetType: "album" | "track",
   targetId: string
 ): Promise<number | null> {

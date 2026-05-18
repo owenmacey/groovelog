@@ -5,7 +5,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { users, accounts } from "@groovelog/db";
 import { registerSchema, loginSchema } from "@groovelog/validators";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
-import { auth } from "../lib/auth";
+import { getAuth } from "../lib/auth";
 
 export const authRouter = router({
   // Register creates the user + credential account manually so we can store username.
@@ -69,12 +69,12 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       let response: Response;
       try {
-        response = await auth.api.signInEmail({
+        response = await getAuth().api.signInEmail({
           body: { email: input.email, password: input.password },
           asResponse: true,
         });
       } catch (err) {
-        console.error("[login] auth.api.signInEmail threw:", err);
+        console.error("[login] getAuth().api.signInEmail threw:", err);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Auth service error",
@@ -105,7 +105,7 @@ export const authRouter = router({
     }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    const response = await auth.api.signOut({
+    const response = await getAuth().api.signOut({
       headers: ctx.req.headers,
       asResponse: true,
     });

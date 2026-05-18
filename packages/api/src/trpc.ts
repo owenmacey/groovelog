@@ -2,9 +2,9 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import superjson from "superjson";
 import { ZodError } from "zod";
-import { db } from "@groovelog/db";
+import { getDb } from "@groovelog/db";
 import { redis } from "./lib/redis";
-import { auth } from "./lib/auth";
+import { getAuth } from "./lib/auth";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -12,10 +12,10 @@ export async function createContext({
   req,
   resHeaders,
 }: FetchCreateContextFnOptions) {
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await getAuth().api.getSession({ headers: req.headers });
 
   return {
-    db,
+    db: getDb(),
     redis,
     session,
     req,

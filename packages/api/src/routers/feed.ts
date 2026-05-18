@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { eq, and, desc, lt, inArray } from "drizzle-orm";
 import { feedEvents, follows, reviews } from "@groovelog/db";
+import type { DB, ReviewedPayload } from "@groovelog/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
-import type { ReviewedPayload } from "@groovelog/db";
 
 const cursorSchema = z.object({
   cursor: z.string().optional(),
@@ -10,7 +10,7 @@ const cursorSchema = z.object({
 });
 
 async function enrichWithReviewBodies<T extends { type: string; payload: unknown }>(
-  db: typeof import("@groovelog/db").db,
+  db: DB,
   items: T[]
 ): Promise<Array<T & { reviewBody?: string }>> {
   const reviewIds = items

@@ -4,25 +4,28 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-// Next.js loads apps/web/.env.local but this package runs in the server bundle.
-// Explicitly load both possible locations so DATABASE_URL is always available.
 config({ path: resolve(process.cwd(), ".env.local"), override: false });
 config({ path: resolve(process.cwd(), "../../.env.local"), override: false });
 
-const databaseUrl = process.env["DATABASE_URL"];
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL environment variable is required");
+function createDb(url: string) {
+  return drizzle(
+    postgres(url, { max: 10, idle_timeout: 20, connect_timeout: 10 }),
+    { schema }
+  );
 }
 
-// In production use a connection pool; for local dev a single connection is fine.
-const client = postgres(databaseUrl, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
-});
+export type DB = ReturnType<typeof createDb>;
 
-export const db = drizzle(client, { schema });
-export type DB = typeof db;
+let _db: DB | null = null;
+
+export function getDb(): DB {
+  if (!_db) {
+    const url = process.env["DATABASE_URL"];
+    if (!url) throw new Error("DATABASE_URL environment variable is required");
+    _db = createDb(url);
+  }
+  return _db;
+}
 
 // Re-export everything so consumers only need to import from "@groovelog/db"
 export * from "./schema";
