@@ -1,84 +1,119 @@
+"use client";
+
 import Link from "next/link";
 import { AlbumCard } from "@/components/catalog/AlbumCard";
 import { TrackRow } from "@/components/catalog/TrackRow";
-import type { Album, Artist, Track } from "@groovelog/db";
-
-type AlbumResult = {
-  album: Album;
-  artist: Artist;
-  avgRating: number | null;
-  ratingCount: number;
-  userRating: number | null;
-};
-
-type TrackResult = {
-  track: Track;
-  album: Album;
-  artist: Artist;
-  avgRating: number | null;
-  ratingCount: number;
-  userRating: number | null;
-};
+import { Button } from "@/components/ui/Button";
+import { trpc } from "@/lib/trpc";
+import type { Artist } from "@groovelog/db";
 
 interface SearchResultsProps {
+  query: string;
   type: "album" | "track" | "artist";
-  albums?: AlbumResult[];
-  tracks?: TrackResult[];
-  artists?: Artist[];
 }
 
-export function SearchResults({
-  type,
-  albums = [],
-  tracks = [],
-  artists = [],
-}: SearchResultsProps) {
+export function SearchResults({ query, type }: SearchResultsProps) {
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    trpc.catalog.search.useInfiniteQuery(
+      { query, type },
+      { getNextPageParam: (page) => page.nextCursor }
+    );
+
+  if (isLoading) {
+    return (
+      <div className="py-8 text-center text-text-tertiary text-sm">Searching…</div>
+    );
+  }
+
+  const total = data?.pages[0]?.total ?? 0;
+
   if (type === "album") {
+    const albums = data?.pages.flatMap((p) => p.albums) ?? [];
     if (albums.length === 0) return <EmptyState message="No albums found" />;
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {albums.map(({ album, artist, avgRating, ratingCount, userRating }) => (
-          <AlbumCard
-            key={album.id}
-            album={album}
-            artist={artist}
-            avgRating={avgRating}
-            ratingCount={ratingCount}
-            userRating={userRating}
-          />
-        ))}
+      <div className="space-y-4">
+        <ResultCount loaded={albums.length} total={total} label="albums" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {albums.map(({ album, artist, avgRating, ratingCount, userRating }) => (
+            <AlbumCard
+              key={album.id}
+              album={album}
+              artist={artist}
+              avgRating={avgRating}
+              ratingCount={ratingCount}
+              userRating={userRating}
+            />
+          ))}
+        </div>
+        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
       </div>
     );
   }
 
   if (type === "track") {
+    const tracks = data?.pages.flatMap((p) => p.tracks) ?? [];
     if (tracks.length === 0) return <EmptyState message="No tracks found" />;
     return (
-      <div className="space-y-1">
-        {tracks.map(({ track, avgRating, userRating }) => (
-          <TrackRow
-            key={track.id}
-            track={track}
-            avgRating={avgRating}
-            userRating={userRating}
-          />
-        ))}
+      <div className="space-y-4">
+        <ResultCount loaded={tracks.length} total={total} label="tracks" />
+        <div className="space-y-1">
+          {tracks.map(({ track, album, artist, avgRating, userRating }) => (
+            <TrackRow
+              key={track.id}
+              track={track}
+              album={album}
+              artist={artist}
+              avgRating={avgRating}
+              userRating={userRating}
+            />
+          ))}
+        </div>
+        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
       </div>
     );
   }
 
   if (type === "artist") {
+    const artists = data?.pages.flatMap((p) => p.artists) ?? [];
     if (artists.length === 0) return <EmptyState message="No artists found" />;
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {artists.map((artist) => (
-          <ArtistCard key={artist.id} artist={artist} />
-        ))}
+      <div className="space-y-4">
+        <ResultCount loaded={artists.length} total={total} label="artists" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {artists.map((artist) => (
+            <ArtistCard key={artist.id} artist={artist} />
+          ))}
+        </div>
+        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
       </div>
     );
   }
 
   return null;
+}
+
+function ResultCount({ loaded, total, label }: { loaded: number; total: number; label: string }) {
+  if (total === 0) return null;
+  return (
+    <p className="text-sm text-text-tertiary">
+      Showing{" "}
+      <span className="font-mono font-medium text-text-primary tabular-nums">{loaded}</span>
+      {" "}of{" "}
+      <span className="font-mono font-medium text-text-primary tabular-nums">{total.toLocaleString()}</span>
+      {" "}{label}
+    </p>
+  );
+}
+
+function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boolean; onLoad: () => void }) {
+  if (!hasMore) return null;
+  return (
+    <div className="flex justify-center pt-2">
+      <Button variant="secondary" size="sm" loading={loading} onClick={onLoad}>
+        Load more
+      </Button>
+    </div>
+  );
 }
 
 function ArtistCard({ artist }: { artist: Artist }) {

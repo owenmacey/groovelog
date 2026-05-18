@@ -61,20 +61,18 @@ export function Navbar() {
               </>
             ) : (
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/login")}
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center h-7 px-3 text-sm rounded-sm font-body select-none transition-colors text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
                 >
                   Sign in
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => router.push("/register")}
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center h-7 px-3 text-sm rounded-sm font-medium font-body select-none transition-colors bg-accent-gold text-text-inverse hover:bg-accent-amber"
                 >
                   Join
-                </Button>
+                </Link>
               </>
             )}
           </div>

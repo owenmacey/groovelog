@@ -20,6 +20,7 @@ const SpotifyArtistFullSchema = z.object({
   images: z.array(SpotifyImageSchema).default([]),
   genres: z.array(z.string()).default([]),
   popularity: z.number().default(0),
+  followers: z.object({ total: z.number() }).optional(),
 }).passthrough();
 
 const SpotifyTrackSimpleSchema = z.object({
@@ -56,14 +57,21 @@ const SpotifyTrackFullSchema = SpotifyTrackSimpleSchema.extend({
 
 const SpotifySearchResponseSchema = z.object({
   albums: z
-    .object({ items: z.array(SpotifyAlbumSimpleSchema) })
+    .object({ items: z.array(SpotifyAlbumSimpleSchema), total: z.number().default(0) })
     .optional(),
   tracks: z
-    .object({ items: z.array(SpotifyTrackFullSchema) })
+    .object({ items: z.array(SpotifyTrackFullSchema), total: z.number().default(0) })
     .optional(),
   artists: z
-    .object({ items: z.array(SpotifyArtistFullSchema) })
+    .object({ items: z.array(SpotifyArtistFullSchema), total: z.number().default(0) })
     .optional(),
+}).passthrough();
+
+const SpotifyArtistAlbumsResponseSchema = z.object({
+  items: z.array(SpotifyAlbumSimpleSchema),
+  total: z.number(),
+  offset: z.number(),
+  limit: z.number(),
 }).passthrough();
 
 const SpotifyTokenResponseSchema = z.object({
@@ -170,9 +178,13 @@ export class SpotifyClient {
     }
   }
 
-  async search(query: string): Promise<SpotifySearchResponse> {
-    console.log(`[spotify] search query="${query}"`);
-    const cacheKey = `spotify:search:${encodeURIComponent(query)}`;
+  async search(
+    query: string,
+    type: "album" | "track" | "artist",
+    offset = 0
+  ): Promise<SpotifySearchResponse> {
+    console.log(`[spotify] search query="${query}" type=${type} offset=${offset}`);
+    const cacheKey = `spotify:search:${type}:${encodeURIComponent(query)}:${offset}`;
 
     const cached = await this.cacheGet(cacheKey);
     if (cached) {
@@ -183,7 +195,7 @@ export class SpotifyClient {
     console.log("[spotify] search cache MISS — fetching from API");
     const encoded = encodeURIComponent(query);
     const result = await this.fetchSpotify(
-      `/search?q=${encoded}&type=album,track,artist&limit=10`,
+      `/search?q=${encoded}&type=${type}&limit=10&offset=${offset}`,
       SpotifySearchResponseSchema
     );
 
@@ -215,7 +227,33 @@ export class SpotifyClient {
   }
 
   async getArtist(spotifyId: string): Promise<SpotifyArtistFull> {
-    return (await this.fetchSpotify(`/artists/${spotifyId}`, SpotifyArtistFullSchema)) as SpotifyArtistFull;
+    const cacheKey = `spotify:artist:${spotifyId}`;
+    const cached = await this.cacheGet(cacheKey);
+    if (cached) return SpotifyArtistFullSchema.parse(JSON.parse(cached)) as SpotifyArtistFull;
+
+    const result = await this.fetchSpotify(`/artists/${spotifyId}`, SpotifyArtistFullSchema);
+    await this.cacheSet(cacheKey, this.SEARCH_CACHE_TTL, JSON.stringify(result));
+    return result as SpotifyArtistFull;
+  }
+
+  async getArtistAlbums(
+    spotifyId: string,
+    offset = 0,
+    limit = 10
+  ): Promise<{ items: SpotifyAlbumSimple[]; total: number }> {
+    const cacheKey = `spotify:artist:${spotifyId}:albums:${offset}:${limit}`;
+    const cached = await this.cacheGet(cacheKey);
+    if (cached) {
+      const parsed = SpotifyArtistAlbumsResponseSchema.parse(JSON.parse(cached));
+      return { items: parsed.items as SpotifyAlbumSimple[], total: parsed.total };
+    }
+
+    const result = await this.fetchSpotify(
+      `/artists/${spotifyId}/albums?include_groups=album,single,ep&limit=${limit}&offset=${offset}`,
+      SpotifyArtistAlbumsResponseSchema
+    );
+    await this.cacheSet(cacheKey, this.SEARCH_CACHE_TTL, JSON.stringify(result));
+    return { items: result.items as SpotifyAlbumSimple[], total: result.total };
   }
 }
 

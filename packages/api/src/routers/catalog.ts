@@ -162,13 +162,14 @@ export const catalogRouter = router({
       z.object({
         query: z.string().min(1).max(200),
         type: z.enum(["album", "track", "artist"]),
+        cursor: z.number().optional(), // offset
       })
     )
     .query(async ({ input, ctx }) => {
+      const offset = input.cursor ?? 0;
       const spotify = getSpotifyClient(ctx.redis);
-      const searchResult = await spotify.search(input.query);
+      const searchResult = await spotify.search(input.query, input.type, offset);
 
-      // Upsert discovered artists + albums/tracks into our DB
       const albumResults: Array<{
         album: typeof albums.$inferSelect;
         artist: typeof artists.$inferSelect;
@@ -187,49 +188,51 @@ export const catalogRouter = router({
       }> = [];
 
       const artistResults: Array<typeof artists.$inferSelect> = [];
+      let total = 0;
 
-      // Upsert albums
-      for (const spotifyAlbum of searchResult.albums?.items ?? []) {
-        const primaryArtist = spotifyAlbum.artists[0];
-        if (!primaryArtist) continue;
-        const artist = await upsertArtist(ctx, primaryArtist);
-        const album = await upsertAlbum(ctx, spotifyAlbum, artist.id);
-        const stats = await getRatingStats(ctx, "album", album.id);
-        const userRating = await getUserRatingForTarget(ctx, "album", album.id);
-        albumResults.push({ album, artist, ...stats, userRating });
+      if (input.type === "album") {
+        total = searchResult.albums?.total ?? 0;
+        for (const spotifyAlbum of searchResult.albums?.items ?? []) {
+          const primaryArtist = spotifyAlbum.artists[0];
+          if (!primaryArtist) continue;
+          const artist = await upsertArtist(ctx, primaryArtist);
+          const album = await upsertAlbum(ctx, spotifyAlbum, artist.id);
+          const stats = await getRatingStats(ctx, "album", album.id);
+          const userRating = await getUserRatingForTarget(ctx, "album", album.id);
+          albumResults.push({ album, artist, ...stats, userRating });
+        }
+      } else if (input.type === "track") {
+        total = searchResult.tracks?.total ?? 0;
+        for (const spotifyTrack of searchResult.tracks?.items ?? []) {
+          const primaryArtist = spotifyTrack.artists[0];
+          if (!primaryArtist || !spotifyTrack.album) continue;
+          const artist = await upsertArtist(ctx, primaryArtist);
+          const album = await upsertAlbum(ctx, spotifyTrack.album, artist.id);
+          const track = await upsertTrack(ctx, spotifyTrack, album.id, artist.id);
+          const stats = await getRatingStats(ctx, "track", track.id);
+          const userRating = await getUserRatingForTarget(ctx, "track", track.id);
+          trackResults.push({ track, album, artist, ...stats, userRating });
+        }
+      } else {
+        total = searchResult.artists?.total ?? 0;
+        for (const spotifyArtist of searchResult.artists?.items ?? []) {
+          const artist = await upsertArtist(ctx, {
+            ...spotifyArtist,
+            images: spotifyArtist.images,
+            genres: spotifyArtist.genres,
+            popularity: spotifyArtist.popularity,
+          });
+          artistResults.push(artist);
+        }
       }
 
-      // Upsert tracks
-      for (const spotifyTrack of searchResult.tracks?.items ?? []) {
-        const primaryArtist = spotifyTrack.artists[0];
-        if (!primaryArtist || !spotifyTrack.album) continue;
-        const artist = await upsertArtist(ctx, primaryArtist);
-        const album = await upsertAlbum(
-          ctx,
-          spotifyTrack.album,
-          artist.id
-        );
-        const track = await upsertTrack(ctx, spotifyTrack, album.id, artist.id);
-        const stats = await getRatingStats(ctx, "track", track.id);
-        const userRating = await getUserRatingForTarget(ctx, "track", track.id);
-        trackResults.push({ track, album, artist, ...stats, userRating });
-      }
-
-      // Upsert artists
-      for (const spotifyArtist of searchResult.artists?.items ?? []) {
-        const artist = await upsertArtist(ctx, {
-          ...spotifyArtist,
-          images: spotifyArtist.images,
-          genres: spotifyArtist.genres,
-          popularity: spotifyArtist.popularity,
-        });
-        artistResults.push(artist);
-      }
-
+      const nextOffset = offset + 10;
       return {
         albums: albumResults,
         tracks: trackResults,
         artists: artistResults,
+        total,
+        nextCursor: nextOffset < total ? nextOffset : undefined,
       };
     }),
 
@@ -334,6 +337,53 @@ export const catalogRouter = router({
         .groupBy(ratings.rating);
 
       return { track, album, artist, ...stats, userRating, distribution };
+    }),
+
+  getArtist: publicProcedure
+    .input(z.object({ spotifyId: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const spotify = getSpotifyClient(ctx.redis);
+      const spotifyArtist = await spotify.getArtist(input.spotifyId);
+      const artist = await upsertArtist(ctx, spotifyArtist);
+      return { artist, followerCount: spotifyArtist.followers?.total ?? null };
+    }),
+
+  getArtistAlbums: publicProcedure
+    .input(
+      z.object({
+        spotifyId: z.string().min(1),
+        limit: z.number().default(10),
+        cursor: z.number().optional(), // offset into Spotify's results
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const offset = input.cursor ?? 0;
+      const limit = input.limit;
+
+      const spotify = getSpotifyClient(ctx.redis);
+      const spotifyArtist = await spotify.getArtist(input.spotifyId);
+      const artist = await upsertArtist(ctx, spotifyArtist);
+
+      const { items: spotifyAlbums, total } = await spotify.getArtistAlbums(
+        input.spotifyId,
+        offset,
+        limit
+      );
+
+      const albumResults = [];
+      for (const spotifyAlbum of spotifyAlbums) {
+        const album = await upsertAlbum(ctx, spotifyAlbum, artist.id);
+        const stats = await getRatingStats(ctx, "album", album.id);
+        const userRating = await getUserRatingForTarget(ctx, "album", album.id);
+        albumResults.push({ album, ...stats, userRating });
+      }
+
+      const nextOffset = offset + limit;
+      return {
+        albums: albumResults,
+        total,
+        nextCursor: nextOffset < total ? nextOffset : undefined,
+      };
     }),
 
   getTrending: publicProcedure.query(async ({ ctx }) => {

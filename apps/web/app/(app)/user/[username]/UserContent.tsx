@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import { Star, MessageSquare, Calendar, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
@@ -13,6 +14,19 @@ import { Input } from "@/components/ui/Input";
 import { trpc } from "@/lib/trpc";
 import { formatRating, formatCount } from "@/lib/utils";
 import type { RatedPayload, ReviewedPayload } from "@groovelog/db";
+
+// ── Shared disc placeholder ───────────────────────────────────────────────────
+
+function DiscPlaceholder({ className }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center text-text-tertiary ${className ?? ""}`}>
+      <svg viewBox="0 0 24 24" className="w-1/3 h-1/3" fill="none" stroke="currentColor" strokeWidth={1}>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </div>
+  );
+}
 
 // ── Edit profile form ─────────────────────────────────────────────────────────
 
@@ -200,33 +214,53 @@ export function UserContent({ username }: { username: string }) {
         )}
 
         {/* ── Stats row ─────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-8 flex-wrap border-t border-border-default pt-6">
-          <div className="text-center">
-            <p className="font-mono text-2xl font-bold text-text-primary tabular-nums">
-              {formatCount(stats.ratingCount)}
-            </p>
-            <p className="text-xs uppercase tracking-widest text-text-tertiary mt-0.5">
-              Ratings
-            </p>
+        <div className="flex flex-wrap items-start gap-6 border-t border-border-default pt-6">
+          <div className="flex items-start gap-2">
+            <Star className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-mono text-2xl font-bold text-text-primary tabular-nums leading-none">
+                {formatCount(stats.ratingCount)}
+              </p>
+              <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
+                Ratings
+              </p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="font-mono text-2xl font-bold text-text-primary tabular-nums">
-              {formatCount(stats.reviewCount)}
-            </p>
-            <p className="text-xs uppercase tracking-widest text-text-tertiary mt-0.5">
-              Reviews
-            </p>
+
+          <div className="flex items-start gap-2">
+            <MessageSquare className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-mono text-2xl font-bold text-text-primary tabular-nums leading-none">
+                {formatCount(stats.reviewCount)}
+              </p>
+              <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
+                Reviews
+              </p>
+            </div>
           </div>
+
           {stats.avgRating != null && (
-            <div className="text-center">
-              <p className="font-mono text-2xl font-bold text-accent-gold tabular-nums">
+            <div>
+              <p className="font-mono text-2xl font-bold text-accent-gold tabular-nums leading-none">
                 {formatRating(stats.avgRating)}
               </p>
-              <p className="text-xs uppercase tracking-widest text-text-tertiary mt-0.5">
+              <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
                 Avg rating
               </p>
             </div>
           )}
+
+          <div className="flex items-start gap-2">
+            <Calendar className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-text-primary leading-none">
+                {format(new Date(user.createdAt), "MMM yyyy")}
+              </p>
+              <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
+                Member since
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ── Recent ratings grid ───────────────────────────────────────── */}
@@ -235,43 +269,62 @@ export function UserContent({ username }: { username: string }) {
             <h2 className="font-display text-lg font-semibold text-text-primary mb-3">
               Recent Ratings
             </h2>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {recentRatings.map((event) => {
                 const p = event.payload as RatedPayload;
+                const href = `/${p.targetType}/${p.spotifyId ?? p.targetId}`;
                 return (
                   <Link
                     key={event.id}
-                    href={`/${p.targetType}/${p.spotifyId ?? p.targetId}`}
-                    className="relative group block"
+                    href={href}
+                    className="group block"
                     title={p.title}
                   >
-                    <div className="aspect-square rounded-md overflow-hidden bg-bg-elevated">
-                      {p.coverUrl ? (
-                        <img
-                          src={p.coverUrl}
-                          alt={p.title}
-                          className="h-full w-full object-cover group-hover:opacity-75 transition-opacity"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-text-tertiary">
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1}
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
+                    <div className="rounded-lg overflow-hidden bg-bg-elevated border border-border-default">
+                      {/* Cover art */}
+                      <div className="relative aspect-square overflow-hidden">
+                        {p.coverUrl ? (
+                          <img
+                            src={p.coverUrl}
+                            alt={p.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <DiscPlaceholder className="h-full w-full bg-bg-elevated" />
+                        )}
+
+                        {/* Gold hover overlay */}
+                        <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/20 transition-colors duration-200 flex items-center justify-center">
+                          <span className="font-mono text-2xl font-bold text-white drop-shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            {formatRating(p.rating)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    {/* Star rating badge — solid bg to avoid CSS-var opacity issue */}
-                    <div className="absolute bottom-1 right-1 bg-bg-base rounded px-1 py-0.5 shadow-sm">
-                      <span className="font-mono text-xs font-bold text-accent-gold">
-                        {formatRating(p.rating)}
-                      </span>
+
+                        {/* Static rating badge — hidden on hover */}
+                        <div className="absolute bottom-1.5 right-1.5 bg-bg-base/90 rounded px-1 py-0.5 shadow-sm group-hover:opacity-0 transition-opacity">
+                          <span className="font-mono text-xs font-bold text-accent-gold">
+                            {formatRating(p.rating)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Info below cover */}
+                      <div className="p-2 space-y-0.5">
+                        <p className="text-xs font-medium text-text-primary truncate leading-tight">
+                          {p.title}
+                        </p>
+                        {"artistName" in event && event.artistName ? (
+                          <p className="text-xs text-text-tertiary truncate">
+                            {event.artistName as string}
+                          </p>
+                        ) : null}
+                        <HalfStarRating
+                          value={p.rating}
+                          readOnly
+                          size="sm"
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </Link>
                 );
@@ -288,28 +341,70 @@ export function UserContent({ username }: { username: string }) {
             </h2>
             {recentReviews.map((event) => {
               const p = event.payload as ReviewedPayload;
+              const href = `/${p.targetType}/${p.spotifyId ?? p.targetId}`;
+              const artistName = "artistName" in event ? (event.artistName as string | undefined) : undefined;
+              const reviewBody = "reviewBody" in event ? (event.reviewBody as string | undefined) : undefined;
+              const likeCount = "likeCount" in event ? (event.likeCount as number | undefined) : undefined;
               return (
                 <div
                   key={event.id}
-                  className="rounded-lg bg-bg-surface border border-border-default p-4"
+                  className="rounded-lg bg-bg-surface border border-border-default p-4 space-y-3"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
+                  {/* Album header */}
+                  <div className="flex items-start gap-3">
+                    <Link href={href} className="flex-shrink-0 block">
+                      <div className="w-14 h-14 rounded overflow-hidden bg-bg-elevated">
+                        {p.coverUrl ? (
+                          <img
+                            src={p.coverUrl}
+                            alt={p.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <DiscPlaceholder className="w-full h-full" />
+                        )}
+                      </div>
+                    </Link>
+                    <div className="flex-1 min-w-0">
                       <Link
-                        href={`/${p.targetType}/${p.spotifyId ?? p.targetId}`}
+                        href={href}
                         className="text-sm font-medium text-text-primary hover:text-accent-gold transition-colors line-clamp-1"
                       >
                         {p.title}
                       </Link>
-                      <p className="text-xs text-text-tertiary mt-0.5">
-                        {formatDistanceToNow(new Date(event.createdAt), {
-                          addSuffix: true,
-                        })}
-                      </p>
+                      {artistName && (
+                        <p className="text-xs text-text-tertiary mt-0.5">{artistName}</p>
+                      )}
+                      {p.rating != null && (
+                        <HalfStarRating
+                          value={p.rating}
+                          readOnly
+                          size="sm"
+                          showLabel
+                          className="mt-1"
+                        />
+                      )}
                     </div>
-                    {p.rating != null && (
-                      <HalfStarRating value={p.rating} readOnly size="sm" showLabel />
-                    )}
+                  </div>
+
+                  {/* Review body */}
+                  {reviewBody && (
+                    <p className="text-sm text-text-primary leading-relaxed line-clamp-3 whitespace-pre-line">
+                      {reviewBody}
+                    </p>
+                  )}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between pt-1 border-t border-border-default">
+                    <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                      <Heart className="h-3.5 w-3.5" />
+                      <span>{formatCount(likeCount ?? 0)}</span>
+                    </div>
+                    <time className="text-xs text-text-tertiary">
+                      {formatDistanceToNow(new Date(event.createdAt), {
+                        addSuffix: true,
+                      })}
+                    </time>
                   </div>
                 </div>
               );

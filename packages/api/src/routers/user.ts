@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, lt, sql, inArray } from "drizzle-orm";
-import { users, follows, ratings, reviews, feedEvents } from "@groovelog/db";
+import { users, follows, ratings, reviews, reviewLikes, feedEvents, albums, tracks, artists } from "@groovelog/db";
+import type { RatedPayload, ReviewedPayload } from "@groovelog/db";
 import {
   getUserProfileSchema,
   followUserSchema,
@@ -9,6 +10,77 @@ import {
   getRecentActivitySchema,
 } from "@groovelog/validators";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
+
+async function enrichActivity<T extends { type: string; payload: unknown }>(
+  db: typeof import("@groovelog/db").db,
+  items: T[]
+): Promise<Array<T & { reviewBody: string | undefined; likeCount: number | undefined; artistName: string | undefined }>> {
+  const reviewIds = new Set<string>();
+  const albumIds = new Set<string>();
+  const trackIds = new Set<string>();
+
+  for (const e of items) {
+    if (e.type === "reviewed") {
+      const p = e.payload as ReviewedPayload;
+      if (p.reviewId) reviewIds.add(p.reviewId);
+    }
+    if (e.type === "rated" || e.type === "reviewed") {
+      const p = e.payload as RatedPayload | ReviewedPayload;
+      if (p.targetType === "album") albumIds.add(p.targetId);
+      else if (p.targetType === "track") trackIds.add(p.targetId);
+    }
+  }
+
+  const bodyMap = new Map<string, string>();
+  const likeCountMap = new Map<string, number>();
+  const artistNameMap = new Map<string, string>();
+
+  if (reviewIds.size > 0) {
+    const ids = Array.from(reviewIds);
+    const bodyRows = await db
+      .select({ id: reviews.id, body: reviews.body })
+      .from(reviews)
+      .where(inArray(reviews.id, ids));
+    bodyRows.forEach((r) => bodyMap.set(r.id, r.body));
+
+    const likeRows = await db
+      .select({ reviewId: reviewLikes.reviewId, count: sql<number>`COUNT(*)::int` })
+      .from(reviewLikes)
+      .where(inArray(reviewLikes.reviewId, ids))
+      .groupBy(reviewLikes.reviewId);
+    likeRows.forEach((r) => likeCountMap.set(r.reviewId, r.count));
+  }
+
+  if (albumIds.size > 0) {
+    const rows = await db
+      .select({ id: albums.id, name: artists.name })
+      .from(albums)
+      .innerJoin(artists, eq(albums.artistId, artists.id))
+      .where(inArray(albums.id, Array.from(albumIds)));
+    rows.forEach((r) => artistNameMap.set(r.id, r.name));
+  }
+
+  if (trackIds.size > 0) {
+    const rows = await db
+      .select({ id: tracks.id, name: artists.name })
+      .from(tracks)
+      .innerJoin(artists, eq(tracks.artistId, artists.id))
+      .where(inArray(tracks.id, Array.from(trackIds)));
+    rows.forEach((r) => artistNameMap.set(r.id, r.name));
+  }
+
+  return items.map((e) => {
+    const isMedia = e.type === "rated" || e.type === "reviewed";
+    const p = isMedia ? (e.payload as RatedPayload | ReviewedPayload) : null;
+    const reviewId = e.type === "reviewed" ? (e.payload as ReviewedPayload).reviewId : undefined;
+    return {
+      ...e,
+      reviewBody: reviewId ? bodyMap.get(reviewId) : undefined,
+      likeCount: reviewId !== undefined ? (likeCountMap.get(reviewId) ?? 0) : undefined,
+      artistName: p ? artistNameMap.get(p.targetId) : undefined,
+    };
+  });
+}
 
 export const userRouter = router({
   getProfile: publicProcedure
@@ -218,9 +290,10 @@ export const userRouter = router({
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, -1) : rows;
       const lastItem = items.at(-1);
+      const enriched = await enrichActivity(ctx.db, items);
 
       return {
-        items,
+        items: enriched,
         nextCursor: hasMore && lastItem
           ? lastItem.createdAt.toISOString()
           : undefined,

@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResults } from "@/components/search/SearchResults";
-import { trpc } from "@/lib/trpc";
 
 type SearchType = "album" | "track" | "artist";
 
@@ -18,11 +17,6 @@ export function SearchContent() {
   const query = searchParams.get("q") ?? "";
   const type = toSearchType(searchParams.get("type"));
 
-  const { data, isLoading } = trpc.catalog.search.useQuery(
-    { query, type },
-    { enabled: query.length > 0 }
-  );
-
   return (
     <PageShell>
       <div className="space-y-6">
@@ -30,20 +24,9 @@ export function SearchContent() {
 
         <SearchBar defaultQuery={query} defaultType={type} autoFocus={!query} />
 
-        {isLoading && query.length > 0 && (
-          <div className="py-8 text-center text-text-tertiary text-sm">Searching…</div>
-        )}
-
-        {data && (
-          <SearchResults
-            type={type}
-            albums={data.albums}
-            tracks={data.tracks}
-            artists={data.artists}
-          />
-        )}
-
-        {!query && (
+        {query ? (
+          <SearchResults query={query} type={type} />
+        ) : (
           <div className="py-16 text-center">
             <p className="text-text-tertiary text-sm">
               Search for albums, tracks, or artists.
