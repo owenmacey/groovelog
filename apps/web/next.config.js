@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["ioredis", "bullmq", "postgres"],
+  experimental: {
+    serverComponentsExternalPackages: ["bcryptjs", "ioredis", "bullmq", "postgres"],
+  },
   images: {
     remotePatterns: [
       {
