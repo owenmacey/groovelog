@@ -1,0 +1,43 @@
+{
+  "name": "@groovelog/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/root.ts",
+      "types": "./src/root.ts"
+    },
+    "./trpc": {
+      "import": "./src/trpc.ts",
+      "types": "./src/trpc.ts"
+    },
+    "./auth": {
+      "import": "./src/lib/auth.ts",
+      "types": "./src/lib/auth.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@groovelog/db": "workspace:*",
+    "@groovelog/validators": "workspace:*",
+    "@paralleldrive/cuid2": "^2.2.2",
+    "@trpc/server": "^11.0.0",
+    "better-auth": "^1.2.7",
+    "bullmq": "^5.38.0",
+    "drizzle-orm": "^0.40.1",
+    "ioredis": "^5.4.2",
+    "superjson": "^2.2.2",
+    "zod": "^3.24.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

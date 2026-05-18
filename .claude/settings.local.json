@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.tsx\" \"C:/Users/17052/Documents/GitHub/groovelog/apps/web/app\")",
+      "Bash(Select-Object FullName)",
+      "Bash(node -e \"const pkg = require\\('./apps/web/package.json'\\); console.log\\(pkg.dependencies.next || pkg.devDependencies.next\\)\")"
+    ]
+  }
+}
