@@ -31,6 +31,7 @@ export const config = {
     "/album/:path*",
     "/track/:path*",
     "/user/:path*",
+    "/following",
     "/search",
     "/login",
     "/register",

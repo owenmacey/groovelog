@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
 import { FollowButton } from "@/components/social/FollowButton";
+import { UserListModal } from "@/components/social/UserListModal";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -102,6 +103,7 @@ export function UserContent({ username }: { username: string }) {
   const utils = trpc.useUtils();
   const { data: me } = trpc.auth.me.useQuery();
   const [isEditing, setIsEditing] = useState(false);
+  const [modal, setModal] = useState<"followers" | "following" | null>(null);
 
   const { data, isLoading, error } = trpc.user.getProfile.useQuery({ username });
 
@@ -162,20 +164,26 @@ export function UserContent({ username }: { username: string }) {
               )}
             </div>
 
-            {/* Follower / following counts */}
+            {/* Follower / following counts — clickable to open modal */}
             <div className="flex items-center gap-4 text-sm text-text-secondary">
-              <span>
+              <button
+                onClick={() => setModal("followers")}
+                className="hover:text-text-primary transition-colors"
+              >
                 <span className="font-mono font-medium text-text-primary">
                   {formatCount(stats.followerCount)}
                 </span>{" "}
                 followers
-              </span>
-              <span>
+              </button>
+              <button
+                onClick={() => setModal("following")}
+                className="hover:text-text-primary transition-colors"
+              >
                 <span className="font-mono font-medium text-text-primary">
                   {formatCount(stats.followingCount)}
                 </span>{" "}
                 following
-              </span>
+              </button>
             </div>
 
             {/* Action buttons */}
@@ -421,6 +429,17 @@ export function UserContent({ username }: { username: string }) {
             </p>
           )}
       </div>
+
+      {/* ── Followers / following modal ───────────────────────────────── */}
+      {modal && (
+        <UserListModal
+          userId={user.id}
+          mode={modal}
+          isOpen={true}
+          onClose={() => setModal(null)}
+          viewerUserId={me?.id}
+        />
+      )}
     </PageShell>
   );
 }

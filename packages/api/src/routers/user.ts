@@ -207,6 +207,8 @@ export const userRouter = router({
   getFollowers: publicProcedure
     .input(getPaginatedSchema)
     .query(async ({ input, ctx }) => {
+      const currentUserId = ctx.session?.user?.id ?? null;
+
       const rows = await ctx.db.query.follows.findMany({
         where: and(
           eq(follows.followingId, input.userId),
@@ -222,9 +224,20 @@ export const userRouter = router({
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, -1) : rows;
       const lastItem = items.at(-1);
+      const userList = items.map((r) => r.follower);
+
+      let followingSet = new Set<string>();
+      if (currentUserId && userList.length > 0) {
+        const ids = userList.map((u) => u.id);
+        const followRows = await ctx.db
+          .select({ followingId: follows.followingId })
+          .from(follows)
+          .where(and(eq(follows.followerId, currentUserId), inArray(follows.followingId, ids)));
+        followingSet = new Set(followRows.map((r) => r.followingId));
+      }
 
       return {
-        items: items.map((r) => r.follower),
+        items: userList.map((u) => ({ ...u, isFollowing: followingSet.has(u.id) })),
         nextCursor: hasMore && lastItem
           ? lastItem.createdAt.toISOString()
           : undefined,
@@ -234,6 +247,8 @@ export const userRouter = router({
   getFollowing: publicProcedure
     .input(getPaginatedSchema)
     .query(async ({ input, ctx }) => {
+      const currentUserId = ctx.session?.user?.id ?? null;
+
       const rows = await ctx.db.query.follows.findMany({
         where: and(
           eq(follows.followerId, input.userId),
@@ -249,9 +264,20 @@ export const userRouter = router({
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, -1) : rows;
       const lastItem = items.at(-1);
+      const userList = items.map((r) => r.following);
+
+      let followingSet = new Set<string>();
+      if (currentUserId && userList.length > 0) {
+        const ids = userList.map((u) => u.id);
+        const followRows = await ctx.db
+          .select({ followingId: follows.followingId })
+          .from(follows)
+          .where(and(eq(follows.followerId, currentUserId), inArray(follows.followingId, ids)));
+        followingSet = new Set(followRows.map((r) => r.followingId));
+      }
 
       return {
-        items: items.map((r) => r.following),
+        items: userList.map((u) => ({ ...u, isFollowing: followingSet.has(u.id) })),
         nextCursor: hasMore && lastItem
           ? lastItem.createdAt.toISOString()
           : undefined,

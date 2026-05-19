@@ -17,8 +17,8 @@ export function FollowButton({
   isFollowing: serverValue,
 }: FollowButtonProps) {
   const utils = trpc.useUtils();
-  // Local state drives the button immediately; synced from server when not pending
   const [isFollowing, setIsFollowing] = useState(serverValue);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setIsFollowing(serverValue);
@@ -28,22 +28,16 @@ export function FollowButton({
     onMutate: () => {
       const next = !isFollowing;
       setIsFollowing(next);
-
-      // Also optimistically update the profile page cache (follower count)
       utils.user.getProfile.setData({ username }, (old) => {
         if (!old) return old;
         return {
           ...old,
           isFollowing: next,
-          stats: {
-            ...old.stats,
-            followerCount: old.stats.followerCount + (next ? 1 : -1),
-          },
+          stats: { ...old.stats, followerCount: old.stats.followerCount + (next ? 1 : -1) },
         };
       });
     },
     onError: () => {
-      // Roll back both local state and cache
       setIsFollowing(serverValue);
       utils.user.getProfile.setData({ username }, (old) => {
         if (!old) return old;
@@ -52,19 +46,26 @@ export function FollowButton({
       toast.error("Failed to update follow");
     },
     onSettled: () => {
-      // Refetch for the true server value
       void utils.user.getProfile.invalidate({ username });
+      void utils.user.getFollowers.invalidate();
+      void utils.user.getFollowing.invalidate();
+      void utils.user.search.invalidate();
     },
   });
 
+  const pending = followMutation.isPending;
+  const showUnfollow = isFollowing && isHovered && !pending;
+
   return (
     <Button
-      variant={isFollowing ? "secondary" : "primary"}
+      variant={showUnfollow ? "danger" : isFollowing ? "secondary" : "primary"}
       size="sm"
-      loading={followMutation.isPending}
+      loading={pending}
       onClick={() => followMutation.mutate({ userId })}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {isFollowing ? "Following" : "Follow"}
+      {showUnfollow ? "Unfollow" : isFollowing ? "Following" : "Follow"}
     </Button>
   );
 }
