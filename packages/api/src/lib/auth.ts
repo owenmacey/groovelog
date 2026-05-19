@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 
 function createAuth() {
   const baseURL = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3000";
+  console.log("BETTER_AUTH_URL:", process.env["BETTER_AUTH_URL"]);
+  console.log("NODE_ENV:", process.env["NODE_ENV"]);
   return betterAuth({
     secret: process.env["BETTER_AUTH_SECRET"],
     baseURL,
@@ -13,6 +15,9 @@ function createAuth() {
       "https://groovelog.vercel.app",
       "http://localhost:3000",
     ],
+    advanced: {
+      disableCsrfCheck: true,
+    },
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: {
