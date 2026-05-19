@@ -56,50 +56,69 @@ export const ratingRouter = router({
   upsert: protectedProcedure
     .input(upsertRatingSchema)
     .mutation(async ({ input, ctx }) => {
-      await checkRateLimit(
-        ctx.redis,
-        `rl:rating:${ctx.user.id}`,
-        60,
-        60
-      );
+      console.log("[rating.upsert] input:", {
+        userId: ctx.user.id,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        rating: input.rating,
+      });
 
-      const [row] = await ctx.db
-        .insert(ratings)
-        .values({
-          userId: ctx.user.id,
-          targetType: input.targetType,
-          targetId: input.targetId,
-          rating: input.rating,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [ratings.userId, ratings.targetType, ratings.targetId],
-          set: { rating: input.rating, updatedAt: new Date() },
-        })
-        .returning();
+      // Rate limit via Redis — non-blocking: if Redis is unavailable, skip it
+      try {
+        await checkRateLimit(ctx.redis, `rl:rating:${ctx.user.id}`, 60, 60);
+      } catch (e) {
+        if (e instanceof TRPCError) throw e; // propagate real rate-limit rejections
+        console.error("[rating.upsert] Redis rate-limit check failed, skipping:", e);
+      }
+
+      let row: typeof ratings.$inferSelect | undefined;
+      try {
+        const [inserted] = await ctx.db
+          .insert(ratings)
+          .values({
+            userId: ctx.user.id,
+            targetType: input.targetType,
+            targetId: input.targetId,
+            rating: input.rating,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [ratings.userId, ratings.targetType, ratings.targetId],
+            set: { rating: input.rating, updatedAt: new Date() },
+          })
+          .returning();
+        row = inserted;
+      } catch (e) {
+        console.error("[rating.upsert] DB insert failed:", e);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to save rating", cause: e });
+      }
 
       if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
-      const { title, coverUrl, spotifyId } = await getTargetTitle(
-        ctx.db,
-        input.targetType,
-        input.targetId
-      );
-
-      const [feedRow] = await ctx.db.insert(feedEvents).values({
-        actorId: ctx.user.id,
-        type: "rated",
-        payload: {
-          targetType: input.targetType,
-          targetId: input.targetId,
-          spotifyId,
-          rating: input.rating,
-          title,
-          coverUrl,
-        },
-      }).returning({ id: feedEvents.id });
-      console.log("[rating] feedEvent inserted:", feedRow?.id);
+      // Feed event — non-blocking: failure here must not fail the rating
+      try {
+        const { title, coverUrl, spotifyId } = await getTargetTitle(
+          ctx.db,
+          input.targetType,
+          input.targetId
+        );
+        const [feedRow] = await ctx.db.insert(feedEvents).values({
+          actorId: ctx.user.id,
+          type: "rated",
+          payload: {
+            targetType: input.targetType,
+            targetId: input.targetId,
+            spotifyId,
+            rating: input.rating,
+            title,
+            coverUrl,
+          },
+        }).returning({ id: feedEvents.id });
+        console.log("[rating.upsert] feedEvent inserted:", feedRow?.id);
+      } catch (e) {
+        console.error("[rating.upsert] feedEvent insertion failed (rating still saved):", e);
+      }
 
       return row;
     }),
