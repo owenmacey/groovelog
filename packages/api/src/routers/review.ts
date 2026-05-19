@@ -106,6 +106,31 @@ export const reviewRouter = router({
         .where(eq(reviews.id, input.id))
         .returning();
 
+      // Bump the existing feed event so the edit surfaces fresh in the feed
+      try {
+        const [existing] = await ctx.db
+          .select({ id: feedEvents.id })
+          .from(feedEvents)
+          .where(
+            and(
+              eq(feedEvents.actorId, ctx.user.id),
+              eq(feedEvents.type, "reviewed"),
+              sql`${feedEvents.payload}->>'reviewId' = ${input.id}`
+            )
+          )
+          .limit(1);
+
+        if (existing) {
+          await ctx.db
+            .update(feedEvents)
+            .set({ createdAt: new Date() })
+            .where(eq(feedEvents.id, existing.id));
+          console.log("[review.update] feedEvent bumped:", existing.id);
+        }
+      } catch (e) {
+        console.error("[review.update] feedEvent bump failed:", e);
+      }
+
       return updated;
     }),
 

@@ -35,6 +35,7 @@ export type RatedPayload = {
   rating: number;
   title: string;
   coverUrl: string | null;
+  isRerate?: boolean;
 };
 
 export type ReviewedPayload = {

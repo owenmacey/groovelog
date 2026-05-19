@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, and, sql } from "drizzle-orm";
 import { ratings, albums, tracks, feedEvents } from "@groovelog/db";
-import type { DB } from "@groovelog/db";
+import type { DB, RatedPayload } from "@groovelog/db";
 import {
   upsertRatingSchema,
   deleteRatingSchema,
@@ -103,19 +103,42 @@ export const ratingRouter = router({
           input.targetType,
           input.targetId
         );
-        const [feedRow] = await ctx.db.insert(feedEvents).values({
-          actorId: ctx.user.id,
-          type: "rated",
-          payload: {
-            targetType: input.targetType,
-            targetId: input.targetId,
-            spotifyId,
-            rating: input.rating,
-            title,
-            coverUrl,
-          },
-        }).returning({ id: feedEvents.id });
-        console.log("[rating.upsert] feedEvent inserted:", feedRow?.id);
+
+        const newPayload: RatedPayload = {
+          targetType: input.targetType,
+          targetId: input.targetId,
+          spotifyId,
+          rating: input.rating,
+          title,
+          coverUrl,
+        };
+
+        // Find an existing rated event for this user + target to avoid spam
+        const [existing] = await ctx.db
+          .select({ id: feedEvents.id })
+          .from(feedEvents)
+          .where(
+            and(
+              eq(feedEvents.actorId, ctx.user.id),
+              eq(feedEvents.type, "rated"),
+              sql`${feedEvents.payload}->>'targetId' = ${input.targetId}`
+            )
+          )
+          .limit(1);
+
+        if (existing) {
+          await ctx.db
+            .update(feedEvents)
+            .set({ createdAt: new Date(), payload: { ...newPayload, isRerate: true } })
+            .where(eq(feedEvents.id, existing.id));
+          console.log("[rating.upsert] feedEvent updated (rerate):", existing.id);
+        } else {
+          const [feedRow] = await ctx.db
+            .insert(feedEvents)
+            .values({ actorId: ctx.user.id, type: "rated", payload: newPayload })
+            .returning({ id: feedEvents.id });
+          console.log("[rating.upsert] feedEvent inserted:", feedRow?.id);
+        }
       } catch (e) {
         console.error("[rating.upsert] feedEvent insertion failed (rating still saved):", e);
       }

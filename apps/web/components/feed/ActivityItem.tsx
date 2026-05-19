@@ -55,7 +55,7 @@ export function ActivityItem({ event }: ActivityItemProps) {
     const p = payload as RatedPayload;
     const href = `/${p.targetType}/${p.spotifyId ?? p.targetId}`;
     return (
-      <div className="flex items-start gap-3 py-3">
+      <div className={cn("flex items-start gap-3 py-3", p.isRerate && "opacity-80")}>
         <Link href={`/user/${actor.username}`} className="flex-shrink-0">
           <UserAvatar user={actor} size="sm" />
         </Link>
@@ -69,7 +69,11 @@ export function ActivityItem({ event }: ActivityItemProps) {
               >
                 {actor.displayName}
               </Link>{" "}
-              rated{" "}
+              {p.isRerate ? (
+                <span className="text-text-tertiary">updated their rating of</span>
+              ) : (
+                "rated"
+              )}{" "}
               <Link
                 href={href}
                 className="font-medium hover:text-accent-gold transition-colors"
