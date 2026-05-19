@@ -132,6 +132,8 @@ export const userRouter = router({
         isFollowing = Boolean(followRow);
       }
 
+      console.log(`[getProfile] ${user.username} — followers:${followerCount?.count ?? 0} following:${followingCount?.count ?? 0} ratings:${ratingCount?.count ?? 0}`);
+
       return {
         user,
         stats: {
