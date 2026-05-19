@@ -16,7 +16,7 @@ function createAuth() {
       "http://localhost:3000",
     ],
     advanced: {
-      disableCsrfCheck: true,
+      disableCSRFCheck: true,
     },
     database: drizzleAdapter(getDb(), {
       provider: "pg",

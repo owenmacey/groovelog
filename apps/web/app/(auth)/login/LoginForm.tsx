@@ -33,7 +33,10 @@ export function LoginForm() {
     try {
       const res = await fetch("/api/auth/sign-in/email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Origin": window.location.origin,
+        },
         body: JSON.stringify({ email, password }),
         credentials: "include",
       });
