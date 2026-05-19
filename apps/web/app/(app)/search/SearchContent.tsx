@@ -5,10 +5,10 @@ import { PageShell } from "@/components/layout/PageShell";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResults } from "@/components/search/SearchResults";
 
-type SearchType = "album" | "track" | "artist";
+type SearchType = "album" | "track" | "artist" | "people";
 
 function toSearchType(s: string | null): SearchType {
-  if (s === "track" || s === "artist") return s;
+  if (s === "track" || s === "artist" || s === "people") return s;
   return "album";
 }
 
@@ -29,7 +29,7 @@ export function SearchContent() {
         ) : (
           <div className="py-16 text-center">
             <p className="text-text-tertiary text-sm">
-              Search for albums, tracks, or artists.
+              Search for albums, tracks, artists, or people.
             </p>
           </div>
         )}

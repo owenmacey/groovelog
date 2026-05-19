@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type SearchType = "album" | "track" | "artist";
+type SearchType = "album" | "track" | "artist" | "people";
 
 const TYPES: { value: SearchType; label: string }[] = [
   { value: "album", label: "Albums" },
   { value: "track", label: "Tracks" },
   { value: "artist", label: "Artists" },
+  { value: "people", label: "People" },
 ];
 
 interface SearchBarProps {
@@ -51,7 +52,7 @@ export function SearchBar({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search albums, tracks, artists…"
+          placeholder="Search albums, tracks, artists, people…"
           autoFocus={autoFocus}
           className={cn(
             "h-11 w-full rounded-lg border bg-bg-elevated pl-10 pr-4",

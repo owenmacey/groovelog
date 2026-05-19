@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, lt, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, lt, sql, inArray, ilike, or, ne } from "drizzle-orm";
 import { users, follows, ratings, reviews, reviewLikes, feedEvents, albums, tracks, artists } from "@groovelog/db";
 import type { DB, RatedPayload, ReviewedPayload } from "@groovelog/db";
 import {
@@ -8,6 +8,7 @@ import {
   getPaginatedSchema,
   updateProfileSchema,
   getRecentActivitySchema,
+  searchUsersSchema,
 } from "@groovelog/validators";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 
@@ -270,6 +271,58 @@ export const userRouter = router({
         .returning();
 
       return updated;
+    }),
+
+  search: publicProcedure
+    .input(searchUsersSchema)
+    .query(async ({ input, ctx }) => {
+      const limit = 10;
+      const offset = input.cursor ?? 0;
+      const pattern = `%${input.query}%`;
+      const currentUserId = ctx.session?.user?.id ?? null;
+
+      const rows = await ctx.db
+        .select({
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(users)
+        .where(
+          and(
+            or(ilike(users.username, pattern), ilike(users.displayName, pattern)),
+            currentUserId ? ne(users.id, currentUserId) : undefined
+          )
+        )
+        .limit(limit + 1)
+        .offset(offset);
+
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, -1) : rows;
+
+      let followingSet = new Set<string>();
+      if (currentUserId && items.length > 0) {
+        const userIds = items.map((u) => u.id);
+        const followRows = await ctx.db
+          .select({ followingId: follows.followingId })
+          .from(follows)
+          .where(
+            and(
+              eq(follows.followerId, currentUserId),
+              inArray(follows.followingId, userIds)
+            )
+          );
+        followingSet = new Set(followRows.map((r) => r.followingId));
+      }
+
+      return {
+        users: items.map((u) => ({
+          ...u,
+          isFollowing: followingSet.has(u.id),
+        })),
+        nextCursor: hasMore ? offset + limit : undefined,
+      };
     }),
 
   getRecentActivity: publicProcedure

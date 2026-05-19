@@ -43,3 +43,8 @@ export const getRecentActivitySchema = z.object({
   cursor: z.string().optional(),
   limit: z.number().int().min(1).max(50).default(20),
 });
+
+export const searchUsersSchema = z.object({
+  query: z.string().min(1),
+  cursor: z.number().int().min(0).optional(),
+});

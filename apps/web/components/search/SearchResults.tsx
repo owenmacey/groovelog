@@ -4,15 +4,32 @@ import Link from "next/link";
 import { AlbumCard } from "@/components/catalog/AlbumCard";
 import { TrackRow } from "@/components/catalog/TrackRow";
 import { Button } from "@/components/ui/Button";
+import { UserAvatar } from "@/components/social/UserAvatar";
+import { FollowButton } from "@/components/social/FollowButton";
 import { trpc } from "@/lib/trpc";
 import type { Artist } from "@groovelog/db";
 
 interface SearchResultsProps {
   query: string;
-  type: "album" | "track" | "artist";
+  type: "album" | "track" | "artist" | "people";
 }
 
 export function SearchResults({ query, type }: SearchResultsProps) {
+  if (type === "people") {
+    return <PeopleResults query={query} />;
+  }
+  return <CatalogResults query={query} type={type} />;
+}
+
+// ─── Catalog (Spotify) results ────────────────────────────────────────────────
+
+function CatalogResults({
+  query,
+  type,
+}: {
+  query: string;
+  type: "album" | "track" | "artist";
+}) {
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
     trpc.catalog.search.useInfiniteQuery(
       { query, type },
@@ -20,9 +37,7 @@ export function SearchResults({ query, type }: SearchResultsProps) {
     );
 
   if (isLoading) {
-    return (
-      <div className="py-8 text-center text-text-tertiary text-sm">Searching…</div>
-    );
+    return <Searching />;
   }
 
   const total = data?.pages[0]?.total ?? 0;
@@ -45,7 +60,11 @@ export function SearchResults({ query, type }: SearchResultsProps) {
             />
           ))}
         </div>
-        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
+        <LoadMore
+          hasMore={!!hasNextPage}
+          loading={isFetchingNextPage}
+          onLoad={() => void fetchNextPage()}
+        />
       </div>
     );
   }
@@ -68,7 +87,11 @@ export function SearchResults({ query, type }: SearchResultsProps) {
             />
           ))}
         </div>
-        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
+        <LoadMore
+          hasMore={!!hasNextPage}
+          loading={isFetchingNextPage}
+          onLoad={() => void fetchNextPage()}
+        />
       </div>
     );
   }
@@ -84,7 +107,11 @@ export function SearchResults({ query, type }: SearchResultsProps) {
             <ArtistCard key={artist.id} artist={artist} />
           ))}
         </div>
-        <LoadMore hasMore={!!hasNextPage} loading={isFetchingNextPage} onLoad={() => void fetchNextPage()} />
+        <LoadMore
+          hasMore={!!hasNextPage}
+          loading={isFetchingNextPage}
+          onLoad={() => void fetchNextPage()}
+        />
       </div>
     );
   }
@@ -92,20 +119,100 @@ export function SearchResults({ query, type }: SearchResultsProps) {
   return null;
 }
 
-function ResultCount({ loaded, total, label }: { loaded: number; total: number; label: string }) {
+// ─── People results ───────────────────────────────────────────────────────────
+
+function PeopleResults({ query }: { query: string }) {
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+    trpc.user.search.useInfiniteQuery(
+      { query },
+      { getNextPageParam: (page) => page.nextCursor }
+    );
+
+  if (isLoading) {
+    return <Searching />;
+  }
+
+  const people = data?.pages.flatMap((p) => p.users) ?? [];
+
+  if (people.length === 0) {
+    return <EmptyState message="No users found for this search" />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="divide-y divide-border-default rounded-lg border border-border-default overflow-hidden">
+        {people.map((user) => (
+          <div
+            key={user.id}
+            className="flex items-center gap-3 px-4 py-3 bg-bg-surface hover:bg-bg-elevated transition-colors"
+          >
+            <Link href={`/user/${user.username}`} className="flex-shrink-0">
+              <UserAvatar user={user} size="sm" />
+            </Link>
+            <Link
+              href={`/user/${user.username}`}
+              className="flex-1 min-w-0 hover:opacity-80 transition-opacity"
+            >
+              <p className="text-sm font-medium text-text-primary truncate">
+                {user.displayName}
+              </p>
+              <p className="text-xs text-text-tertiary truncate">
+                @{user.username}
+              </p>
+            </Link>
+            <FollowButton
+              userId={user.id}
+              username={user.username}
+              isFollowing={user.isFollowing}
+            />
+          </div>
+        ))}
+      </div>
+      <LoadMore
+        hasMore={!!hasNextPage}
+        loading={isFetchingNextPage}
+        onLoad={() => void fetchNextPage()}
+      />
+    </div>
+  );
+}
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function ResultCount({
+  loaded,
+  total,
+  label,
+}: {
+  loaded: number;
+  total: number;
+  label: string;
+}) {
   if (total === 0) return null;
   return (
     <p className="text-sm text-text-tertiary">
       Showing{" "}
-      <span className="font-mono font-medium text-text-primary tabular-nums">{loaded}</span>
-      {" "}of{" "}
-      <span className="font-mono font-medium text-text-primary tabular-nums">{total.toLocaleString()}</span>
-      {" "}{label}
+      <span className="font-mono font-medium text-text-primary tabular-nums">
+        {loaded}
+      </span>{" "}
+      of{" "}
+      <span className="font-mono font-medium text-text-primary tabular-nums">
+        {total.toLocaleString()}
+      </span>{" "}
+      {label}
     </p>
   );
 }
 
-function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boolean; onLoad: () => void }) {
+function LoadMore({
+  hasMore,
+  loading,
+  onLoad,
+}: {
+  hasMore: boolean;
+  loading: boolean;
+  onLoad: () => void;
+}) {
   if (!hasMore) return null;
   return (
     <div className="flex justify-center pt-2">
@@ -140,8 +247,18 @@ function ArtistCard({ artist }: { artist: Artist }) {
   );
 }
 
+function Searching() {
+  return (
+    <div className="py-8 text-center text-text-tertiary text-sm">
+      Searching…
+    </div>
+  );
+}
+
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="py-16 text-center text-text-tertiary text-sm">{message}</div>
+    <div className="py-16 text-center text-text-tertiary text-sm">
+      {message}
+    </div>
   );
 }

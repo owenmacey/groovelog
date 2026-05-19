@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Search, Rss, User } from "lucide-react";
+import { Home, Search, Rss, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ export function Sidebar({ username, className }: SidebarProps) {
         <SidebarLink href="/" icon={Home} label="Home" />
         <SidebarLink href="/feed" icon={Rss} label="Feed" />
         <SidebarLink href="/search" icon={Search} label="Search" />
+        <SidebarLink href="/search?type=people" icon={Users} label="People" />
         {username && (
           <SidebarLink href={`/user/${username}`} icon={User} label="Profile" />
         )}
