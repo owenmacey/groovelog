@@ -8,7 +8,11 @@ function createAuth() {
   return betterAuth({
     secret: process.env["BETTER_AUTH_SECRET"],
     baseURL,
-    trustedOrigins: [baseURL],
+    trustedOrigins: [
+      baseURL,
+      "https://groovelog.vercel.app",
+      "http://localhost:3000",
+    ],
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: {
