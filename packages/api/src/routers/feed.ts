@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, lt, inArray } from "drizzle-orm";
+import { eq, and, desc, lt, inArray, notInArray } from "drizzle-orm";
 import { feedEvents, follows, reviews } from "@groovelog/db";
 import type { DB, ReviewedPayload } from "@groovelog/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
@@ -60,6 +60,7 @@ export const feedRouter = router({
       const rows = await ctx.db.query.feedEvents.findMany({
         where: and(
           inArray(feedEvents.actorId, actorIds),
+          notInArray(feedEvents.type, ["followed"]),
           input.cursor
             ? lt(feedEvents.createdAt, new Date(input.cursor))
             : undefined
@@ -86,9 +87,12 @@ export const feedRouter = router({
     .input(cursorSchema)
     .query(async ({ input, ctx }) => {
       const rows = await ctx.db.query.feedEvents.findMany({
-        where: input.cursor
-          ? lt(feedEvents.createdAt, new Date(input.cursor))
-          : undefined,
+        where: and(
+          notInArray(feedEvents.type, ["followed"]),
+          input.cursor
+            ? lt(feedEvents.createdAt, new Date(input.cursor))
+            : undefined
+        ),
         orderBy: [desc(feedEvents.createdAt)],
         limit: input.limit + 1,
         with: { actor: true },
