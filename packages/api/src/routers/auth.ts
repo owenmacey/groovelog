@@ -94,10 +94,9 @@ export const authRouter = router({
         });
       }
 
-      // Forward the session cookie to the client
-      const setCookie = response.headers.get("set-cookie");
-      if (setCookie) {
-        ctx.resHeaders.append("set-cookie", setCookie);
+      // Forward all session cookies — getSetCookie() preserves each header separately
+      for (const cookie of response.headers.getSetCookie()) {
+        ctx.resHeaders.append("set-cookie", cookie);
       }
 
       const data = (await response.json()) as { user: unknown };
@@ -110,9 +109,8 @@ export const authRouter = router({
       asResponse: true,
     });
 
-    const setCookie = response.headers.get("set-cookie");
-    if (setCookie) {
-      ctx.resHeaders.append("set-cookie", setCookie);
+    for (const cookie of response.headers.getSetCookie()) {
+      ctx.resHeaders.append("set-cookie", cookie);
     }
 
     return { success: true };

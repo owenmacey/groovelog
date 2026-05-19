@@ -4,9 +4,11 @@ import { getDb, users, sessions, accounts, verifications } from "@groovelog/db";
 import bcrypt from "bcryptjs";
 
 function createAuth() {
+  const baseURL = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3000";
   return betterAuth({
     secret: process.env["BETTER_AUTH_SECRET"],
-    baseURL: process.env["BETTER_AUTH_URL"] ?? "http://localhost:3000",
+    baseURL,
+    trustedOrigins: [baseURL],
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: {
