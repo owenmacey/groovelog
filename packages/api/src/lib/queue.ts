@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { redis } from "./redis";
+import { getRedis } from "./redis";
 import type { FeedEventPayload } from "@groovelog/db";
 
 export type FeedEventJob = {
@@ -8,13 +8,19 @@ export type FeedEventJob = {
   payload: FeedEventPayload;
 };
 
-// Separate Redis connection for BullMQ (BullMQ requires maxRetriesPerRequest: null)
-export const feedQueue = new Queue<FeedEventJob>("feed-events", {
-  connection: redis,
-  defaultJobOptions: {
-    removeOnComplete: 100,
-    removeOnFail: 50,
-    attempts: 3,
-    backoff: { type: "exponential", delay: 1000 },
-  },
-});
+let _feedQueue: Queue<FeedEventJob> | null = null;
+
+export function getFeedQueue(): Queue<FeedEventJob> {
+  if (!_feedQueue) {
+    _feedQueue = new Queue<FeedEventJob>("feed-events", {
+      connection: getRedis(),
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 1000 },
+      },
+    });
+  }
+  return _feedQueue;
+}

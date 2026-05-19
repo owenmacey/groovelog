@@ -3,7 +3,7 @@ import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { getDb } from "@groovelog/db";
-import { redis } from "./lib/redis";
+import { getRedis } from "./lib/redis";
 import { getAuth } from "./lib/auth";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ export async function createContext({
 
   return {
     db: getDb(),
-    redis,
+    redis: getRedis(),
     session,
     req,
     resHeaders,

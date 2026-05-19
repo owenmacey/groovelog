@@ -5,14 +5,19 @@ import { Redis } from "ioredis";
 config({ path: resolve(process.cwd(), ".env.local"), override: false });
 config({ path: resolve(process.cwd(), "../../.env.local"), override: false });
 
-const redisUrl = process.env["REDIS_URL"];
-if (!redisUrl) throw new Error("REDIS_URL is required");
+let _redis: Redis | null = null;
 
-export const redis = new Redis(redisUrl, {
-  maxRetriesPerRequest: null, // required by BullMQ
-  enableReadyCheck: false,
-});
-
-redis.on("error", (err: unknown) => {
-  console.error("Redis error:", err);
-});
+export function getRedis(): Redis {
+  if (!_redis) {
+    const url = process.env["REDIS_URL"];
+    if (!url) throw new Error("REDIS_URL is required");
+    _redis = new Redis(url, {
+      maxRetriesPerRequest: null, // required by BullMQ
+      enableReadyCheck: false,
+    });
+    _redis.on("error", (err: unknown) => {
+      console.error("Redis error:", err);
+    });
+  }
+  return _redis;
+}
