@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -10,20 +10,12 @@ import { Input } from "@/components/ui/Input";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-
-  const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async () => {
-      await utils.auth.me.invalidate();
-      router.push("/feed");
-    },
-    onError: (err) => {
-      setFormError(err.message);
-    },
-  });
+  const [isLoading, setIsLoading] = useState(false);
 
   const spotifyMutation = trpc.auth.loginWithSpotify.useMutation({
     onSuccess: (data) => {
@@ -34,10 +26,34 @@ export function LoginForm() {
     },
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    loginMutation.mutate({ email, password });
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setFormError(
+          (body as { message?: string }).message ?? "Invalid email or password"
+        );
+        return;
+      }
+
+      await utils.auth.me.invalidate();
+      const from = searchParams.get("from") ?? "/feed";
+      router.push(from);
+    } catch {
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -70,7 +86,7 @@ export function LoginForm() {
           type="submit"
           className="w-full"
           size="lg"
-          loading={loginMutation.isPending}
+          loading={isLoading}
         >
           Sign in
         </Button>

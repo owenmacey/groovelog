@@ -17,11 +17,33 @@ export function RegisterForm() {
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  async function signIn(email: string, password: string) {
+    setIsSigningIn(true);
+    try {
+      const res = await fetch("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        router.push("/login");
+        return;
+      }
+      await utils.auth.me.invalidate();
+      router.push("/feed");
+    } catch {
+      router.push("/login");
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: async () => {
-      // Registration creates the user; now log in automatically
-      await loginMutation.mutateAsync({ email, password });
+      await signIn(email, password);
     },
     onError: (err) => {
       const msg = err.message;
@@ -32,17 +54,6 @@ export function RegisterForm() {
       } else {
         setFormError(msg);
       }
-    },
-  });
-
-  const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async () => {
-      await utils.auth.me.invalidate();
-      router.push("/feed");
-    },
-    onError: () => {
-      // Registration succeeded but auto-login failed — send to login page
-      router.push("/login");
     },
   });
 
@@ -58,7 +69,7 @@ export function RegisterForm() {
     });
   }
 
-  const isPending = registerMutation.isPending || loginMutation.isPending;
+  const isPending = registerMutation.isPending || isSigningIn;
 
   return (
     <div className="rounded-lg bg-bg-surface border border-border-default p-6 space-y-5">
