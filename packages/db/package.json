@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx src/seed.ts",
+    "db:migrate": "tsx src/migrations/migrate-to-entries.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

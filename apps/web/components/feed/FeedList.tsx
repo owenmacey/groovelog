@@ -1,13 +1,10 @@
 "use client";
 
 import { type ReactNode, type RefObject } from "react";
-import { ActivityItem } from "@/components/feed/ActivityItem";
-import type { FeedEvent, User } from "@groovelog/db";
-
-type FeedEventWithActor = FeedEvent & { actor: User; reviewBody?: string };
+import { EntryCard, type EntryFeedEvent } from "@/components/feed/EntryCard";
 
 interface FeedListProps {
-  items: FeedEventWithActor[];
+  items: EntryFeedEvent[];
   isLoading: boolean;
   sentinelRef?: RefObject<HTMLDivElement>;
   emptyState?: ReactNode;
@@ -36,7 +33,7 @@ export function FeedList({ items, isLoading, sentinelRef, emptyState }: FeedList
     <div>
       <div className="divide-y divide-border-default">
         {items.map((event) => (
-          <ActivityItem key={event.id} event={event} />
+          <EntryCard key={event.id} event={event} />
         ))}
       </div>
       {sentinelRef && <div ref={sentinelRef} aria-hidden="true" />}

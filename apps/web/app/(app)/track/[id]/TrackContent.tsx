@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
-import { ReviewCard } from "@/components/social/ReviewCard";
-import { Button } from "@/components/ui/Button";
 import { trpc } from "@/lib/trpc";
 import { formatRating, formatCount, formatDurationMs } from "@/lib/utils";
 
@@ -38,117 +36,21 @@ function RatingHistogram({
   );
 }
 
-// ── Write review form ─────────────────────────────────────────────────────────
-
-function WriteReviewForm({
-  trackId,
-  onSuccess,
-}: {
-  trackId: string;
-  onSuccess: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [body, setBody] = useState("");
-  const [spoilers, setSpoilers] = useState(false);
-
-  const createMutation = trpc.review.create.useMutation({
-    onSuccess: () => {
-      setBody("");
-      setSpoilers(false);
-      setOpen(false);
-      onSuccess();
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  if (!open) {
-    return (
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        Write a review
-      </Button>
-    );
-  }
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!body.trim()) return;
-        createMutation.mutate({
-          targetType: "track",
-          targetId: trackId,
-          body: body.trim(),
-          containsSpoilers: spoilers,
-        });
-      }}
-      className="rounded-lg bg-bg-surface border border-border-default p-4 space-y-3"
-    >
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Share your thoughts…"
-        rows={4}
-        maxLength={2000}
-        className="w-full resize-none rounded-md bg-bg-elevated border border-border-default px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-gold"
-      />
-      <div className="flex items-center justify-between gap-4">
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={spoilers}
-            onChange={(e) => setSpoilers(e.target.checked)}
-            className="accent-accent-gold"
-          />
-          Contains spoilers
-        </label>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setOpen(false);
-              setBody("");
-              setSpoilers(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            loading={createMutation.isPending}
-            disabled={!body.trim()}
-          >
-            Publish
-          </Button>
-        </div>
-      </div>
-    </form>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function TrackContent({ spotifyId }: { spotifyId: string }) {
   const utils = trpc.useUtils();
   const { data: me } = trpc.auth.me.useQuery();
 
-  const { data, isLoading, error } = trpc.catalog.getTrack.useQuery({
-    spotifyId,
-  });
+  const { data, isLoading, error } = trpc.catalog.getTrack.useQuery({ spotifyId });
 
-  const reviewsQuery = trpc.review.list.useInfiniteQuery(
-    { targetType: "track", targetId: data?.track.id ?? "", limit: 20 },
+  // Check if the logged-in user has a published entry for this track's album
+  const albumEntryQuery = trpc.entry.getEntryByUserAndAlbum.useQuery(
     {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      enabled: !!data?.track.id,
-    }
-  );
-
-  const userReviewQuery = trpc.review.getUserReview.useQuery(
-    { targetType: "track", targetId: data?.track.id ?? "" },
-    { enabled: !!data?.track.id && !!me }
+      username: me?.username ?? "",
+      albumSpotifyId: data?.album.spotifyId ?? "",
+    },
+    { enabled: !!me && !!data?.album.spotifyId }
   );
 
   const rateTrackMutation = trpc.rating.upsert.useMutation({
@@ -205,14 +107,13 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
 
   const { track, album, artist, avgRating, ratingCount, userRating, distribution } = data;
   const year = album.releaseDate?.slice(0, 4) ?? null;
-  const reviews = reviewsQuery.data?.pages.flatMap((p) => p.items) ?? [];
+  const albumEntry = albumEntryQuery.data ?? null;
 
   return (
     <PageShell>
       <div className="space-y-10">
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <div className="flex gap-6 sm:gap-8">
-          {/* Album cover (smaller than album page — it's the album's art) */}
           <div className="flex-shrink-0 w-28 sm:w-40">
             <Link href={`/album/${album.spotifyId}`} className="block">
               <div className="aspect-square rounded-lg overflow-hidden bg-bg-elevated shadow-lift">
@@ -240,7 +141,6 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
             </Link>
           </div>
 
-          {/* Metadata + rating */}
           <div className="flex-1 min-w-0 space-y-5 pt-1">
             {/* Title + artist + album */}
             <div>
@@ -268,7 +168,7 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
               </div>
             </div>
 
-            {/* Your rating — always above the fold */}
+            {/* Your rating */}
             <div className="space-y-1.5">
               <p className="text-xs uppercase tracking-widest text-text-tertiary font-mono">
                 Your rating
@@ -308,7 +208,18 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
               </div>
             </div>
 
-            {/* Community aggregate stats */}
+            {/* Album entry note */}
+            {albumEntry && (
+              <Link
+                href={`/entry/${albumEntry.id}`}
+                className="inline-flex items-center gap-1.5 text-xs text-accent-gold hover:text-accent-amber transition-colors"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                You logged {album.title} — view your entry
+              </Link>
+            )}
+
+            {/* Community stats */}
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-widest text-text-tertiary font-mono">
                 Community
@@ -333,7 +244,7 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
           </div>
         </div>
 
-        {/* ── Audio preview — only when Spotify provides a clip ─────────── */}
+        {/* ── Audio preview ─────────────────────────────────────────────── */}
         {track.previewUrl && (
           <section>
             <h2 className="font-display text-lg font-semibold text-text-primary mb-3">
@@ -347,54 +258,6 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
             </div>
           </section>
         )}
-
-        {/* ── Reviews ───────────────────────────────────────────────────── */}
-        <section className="space-y-4">
-          <h2 className="font-display text-lg font-semibold text-text-primary">
-            Reviews
-          </h2>
-
-          {me && !userReviewQuery.isLoading && !userReviewQuery.data && (
-            <WriteReviewForm
-              trackId={track.id}
-              onSuccess={() => {
-                void utils.review.list.invalidate({
-                  targetType: "track",
-                  targetId: track.id,
-                });
-                void utils.review.getUserReview.invalidate({
-                  targetType: "track",
-                  targetId: track.id,
-                });
-              }}
-            />
-          )}
-
-          {reviews.length === 0 && !reviewsQuery.isLoading && (
-            <p className="text-sm text-text-tertiary py-4 text-center">
-              No reviews yet.
-            </p>
-          )}
-
-          <div className="space-y-3">
-            {reviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
-            ))}
-          </div>
-
-          {reviewsQuery.hasNextPage && (
-            <div className="flex justify-center pt-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={reviewsQuery.isFetchingNextPage}
-                onClick={() => void reviewsQuery.fetchNextPage()}
-              >
-                Load more reviews
-              </Button>
-            </div>
-          )}
-        </section>
       </div>
     </PageShell>
   );

@@ -3,6 +3,17 @@ import { AlbumContent } from "./AlbumContent";
 
 export const metadata: Metadata = { title: "Album · Groovelog" };
 
-export default function AlbumPage({ params }: { params: { id: string } }) {
-  return <AlbumContent spotifyId={params.id} />;
+export default function AlbumPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { log?: string };
+}) {
+  return (
+    <AlbumContent
+      spotifyId={params.id}
+      autoLog={searchParams.log === "1"}
+    />
+  );
 }

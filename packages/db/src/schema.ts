@@ -7,6 +7,7 @@ import {
   smallint,
   boolean,
   timestamp,
+  date,
   jsonb,
   primaryKey,
   index,
@@ -19,34 +20,17 @@ import { createId } from "@paralleldrive/cuid2";
 
 export const albumTypeEnum = pgEnum("album_type", ["album", "single", "ep"]);
 export const targetTypeEnum = pgEnum("target_type", ["track", "album"]);
+export const entryStatusEnum = pgEnum("entry_status", ["draft", "published"]);
 export const feedEventTypeEnum = pgEnum("feed_event_type", [
   "rated",
   "reviewed",
   "followed",
   "listed",
+  "entry_published",
+  "entry_updated",
 ]);
 
 // ─── Feed payload types ───────────────────────────────────────────────────────
-
-export type RatedPayload = {
-  targetType: "track" | "album";
-  targetId: string;
-  spotifyId?: string;
-  rating: number;
-  title: string;
-  coverUrl: string | null;
-  isRerate?: boolean;
-};
-
-export type ReviewedPayload = {
-  targetType: "track" | "album";
-  targetId: string;
-  spotifyId?: string;
-  reviewId: string;
-  rating: number | null;
-  title: string;
-  coverUrl: string | null;
-};
 
 export type FollowedPayload = {
   targetUserId: string;
@@ -60,11 +44,24 @@ export type ListedPayload = {
   targetId: string;
 };
 
+export type EntryPublishedPayload = {
+  entryId: string;
+  albumId: string;
+  albumTitle: string;
+  artistName: string;
+  coverUrl: string | null;
+  overallRating: number | null;
+  reviewSnippet: string | null;
+  trackRatingCount: number;
+  totalTrackCount?: number;
+};
+
+export type EntryUpdatedPayload = EntryPublishedPayload;
+
 export type FeedEventPayload =
-  | RatedPayload
-  | ReviewedPayload
   | FollowedPayload
-  | ListedPayload;
+  | ListedPayload
+  | EntryPublishedPayload;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 // Extends Better Auth's required user fields with our custom ones.
@@ -206,6 +203,35 @@ export const tracks = pgTable("tracks", {
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ─── Album Entries ────────────────────────────────────────────────────────────
+
+export const albumEntries = pgTable(
+  "album_entries",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    albumId: text("album_id")
+      .notNull()
+      .references(() => albums.id, { onDelete: "cascade" }),
+    overallRating: smallint("overall_rating"),
+    reviewBody: text("review_body"),
+    status: entryStatusEnum("status").default("draft").notNull(),
+    listenedAt: date("listened_at"),
+    publishedAt: timestamp("published_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("entries_user_album_uniq").on(t.userId, t.albumId),
+    index("entries_published_idx").on(t.status, t.publishedAt),
+    index("entries_user_status_idx").on(t.userId, t.status),
+  ]
+);
+
 // ─── Ratings ──────────────────────────────────────────────────────────────────
 
 export const ratings = pgTable(
@@ -221,6 +247,9 @@ export const ratings = pgTable(
     targetId: text("target_id").notNull(),
     // Stored 1–10; displayed as 0.5–5.0 (divide by 2)
     rating: smallint("rating").notNull(),
+    albumEntryId: text("album_entry_id").references(() => albumEntries.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -235,44 +264,20 @@ export const ratings = pgTable(
   ]
 );
 
-// ─── Reviews ──────────────────────────────────────────────────────────────────
+// ─── Entry Likes ──────────────────────────────────────────────────────────────
 
-export const reviews = pgTable(
-  "reviews",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => createId()),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    targetType: targetTypeEnum("target_type").notNull(),
-    targetId: text("target_id").notNull(),
-    body: text("body").notNull(),
-    ratingId: text("rating_id").references(() => ratings.id, {
-      onDelete: "set null",
-    }),
-    containsSpoilers: boolean("contains_spoilers").default(false).notNull(),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-  },
-  (t) => [index("reviews_target_idx").on(t.targetType, t.targetId)]
-);
-
-// ─── Review Likes ─────────────────────────────────────────────────────────────
-
-export const reviewLikes = pgTable(
-  "review_likes",
+export const entryLikes = pgTable(
+  "entry_likes",
   {
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    reviewId: text("review_id")
+    entryId: text("entry_id")
       .notNull()
-      .references(() => reviews.id, { onDelete: "cascade" }),
+      .references(() => albumEntries.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.reviewId] })]
+  (t) => [primaryKey({ columns: [t.userId, t.entryId] })]
 );
 
 // ─── Feed Events ──────────────────────────────────────────────────────────────
@@ -302,11 +307,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   followedBy: many(follows, { relationName: "following" }),
   following: many(follows, { relationName: "follower" }),
   ratings: many(ratings),
-  reviews: many(reviews),
-  reviewLikes: many(reviewLikes),
+  entryLikes: many(entryLikes),
   feedEvents: many(feedEvents),
   sessions: many(sessions),
   accounts: many(accounts),
+  albumEntries: many(albumEntries),
 }));
 
 export const followsRelations = relations(follows, ({ one }) => ({
@@ -338,6 +343,7 @@ export const artistsRelations = relations(artists, ({ many }) => ({
 export const albumsRelations = relations(albums, ({ one, many }) => ({
   artist: one(artists, { fields: [albums.artistId], references: [artists.id] }),
   tracks: many(tracks),
+  entries: many(albumEntries),
 }));
 
 export const tracksRelations = relations(tracks, ({ one }) => ({
@@ -345,25 +351,26 @@ export const tracksRelations = relations(tracks, ({ one }) => ({
   artist: one(artists, { fields: [tracks.artistId], references: [artists.id] }),
 }));
 
-export const ratingsRelations = relations(ratings, ({ one, many }) => ({
+export const albumEntriesRelations = relations(albumEntries, ({ one, many }) => ({
+  user: one(users, { fields: [albumEntries.userId], references: [users.id] }),
+  album: one(albums, { fields: [albumEntries.albumId], references: [albums.id] }),
+  linkedRatings: many(ratings),
+  likes: many(entryLikes),
+}));
+
+export const ratingsRelations = relations(ratings, ({ one }) => ({
   user: one(users, { fields: [ratings.userId], references: [users.id] }),
-  reviews: many(reviews),
-}));
-
-export const reviewsRelations = relations(reviews, ({ one, many }) => ({
-  user: one(users, { fields: [reviews.userId], references: [users.id] }),
-  rating: one(ratings, {
-    fields: [reviews.ratingId],
-    references: [ratings.id],
+  albumEntry: one(albumEntries, {
+    fields: [ratings.albumEntryId],
+    references: [albumEntries.id],
   }),
-  likes: many(reviewLikes),
 }));
 
-export const reviewLikesRelations = relations(reviewLikes, ({ one }) => ({
-  user: one(users, { fields: [reviewLikes.userId], references: [users.id] }),
-  review: one(reviews, {
-    fields: [reviewLikes.reviewId],
-    references: [reviews.id],
+export const entryLikesRelations = relations(entryLikes, ({ one }) => ({
+  user: one(users, { fields: [entryLikes.userId], references: [users.id] }),
+  entry: one(albumEntries, {
+    fields: [entryLikes.entryId],
+    references: [albumEntries.id],
   }),
 }));
 
@@ -385,8 +392,8 @@ export type Track = typeof tracks.$inferSelect;
 export type NewTrack = typeof tracks.$inferInsert;
 export type Rating = typeof ratings.$inferSelect;
 export type NewRating = typeof ratings.$inferInsert;
-export type Review = typeof reviews.$inferSelect;
-export type NewReview = typeof reviews.$inferInsert;
-export type ReviewLike = typeof reviewLikes.$inferSelect;
+export type AlbumEntry = typeof albumEntries.$inferSelect;
+export type NewAlbumEntry = typeof albumEntries.$inferInsert;
+export type EntryLike = typeof entryLikes.$inferSelect;
 export type FeedEvent = typeof feedEvents.$inferSelect;
 export type NewFeedEvent = typeof feedEvents.$inferInsert;
