@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { eq, and, desc, lt, inArray, notInArray } from "drizzle-orm";
-import { feedEvents, follows, reviews } from "@groovelog/db";
-import type { DB, ReviewedPayload } from "@groovelog/db";
+import { eq, and, or, desc, lt, inArray, sql } from "drizzle-orm";
+import { feedEvents, follows, entryLikes } from "@groovelog/db";
+import type { DB, EntryPublishedPayload } from "@groovelog/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 
 const cursorSchema = z.object({
@@ -9,33 +9,58 @@ const cursorSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
-async function enrichWithReviewBodies<T extends { type: string; payload: unknown }>(
+const isEntryEvent = or(
+  eq(feedEvents.type, "entry_published"),
+  eq(feedEvents.type, "entry_updated")
+);
+
+async function enrichWithLikeData<T extends { payload: unknown }>(
   db: DB,
-  items: T[]
-): Promise<Array<T & { reviewBody?: string }>> {
-  const reviewIds = items
-    .filter((e) => e.type === "reviewed")
-    .map((e) => (e.payload as ReviewedPayload).reviewId)
+  items: T[],
+  viewerId: string | null
+): Promise<Array<T & { likeCount: number; isLiked: boolean }>> {
+  const entryIds = items
+    .map((e) => (e.payload as EntryPublishedPayload).entryId)
     .filter((id): id is string => Boolean(id));
 
-  if (reviewIds.length === 0) {
-    return items.map((e) => ({ ...e, reviewBody: undefined }));
+  if (entryIds.length === 0) {
+    return items.map((e) => ({ ...e, likeCount: 0, isLiked: false }));
   }
 
-  const bodyRows = await db
-    .select({ id: reviews.id, body: reviews.body })
-    .from(reviews)
-    .where(inArray(reviews.id, reviewIds));
+  const [countRows, viewerLikeRows] = await Promise.all([
+    db
+      .select({
+        entryId: entryLikes.entryId,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(entryLikes)
+      .where(inArray(entryLikes.entryId, entryIds))
+      .groupBy(entryLikes.entryId),
 
-  const bodyMap = new Map(bodyRows.map((r) => [r.id, r.body]));
+    viewerId
+      ? db
+          .select({ entryId: entryLikes.entryId })
+          .from(entryLikes)
+          .where(
+            and(
+              eq(entryLikes.userId, viewerId),
+              inArray(entryLikes.entryId, entryIds)
+            )
+          )
+      : Promise.resolve([]),
+  ]);
 
-  return items.map((e) => ({
-    ...e,
-    reviewBody:
-      e.type === "reviewed"
-        ? (bodyMap.get((e.payload as ReviewedPayload).reviewId) ?? undefined)
-        : undefined,
-  }));
+  const likeCountMap = new Map(countRows.map((r) => [r.entryId, r.count]));
+  const likedSet = new Set(viewerLikeRows.map((r) => r.entryId));
+
+  return items.map((e) => {
+    const entryId = (e.payload as EntryPublishedPayload).entryId;
+    return {
+      ...e,
+      likeCount: likeCountMap.get(entryId) ?? 0,
+      isLiked: likedSet.has(entryId),
+    };
+  });
 }
 
 export const feedRouter = router({
@@ -47,10 +72,7 @@ export const feedRouter = router({
         columns: { followingId: true },
       });
 
-      const followingIds = followedRows
-        .map((f) => f.followingId)
-        .filter((id): id is string => Boolean(id));
-
+      const followingIds = followedRows.map((f) => f.followingId);
       const actorIds = [...followingIds, ctx.user.id];
 
       if (actorIds.length === 0) {
@@ -60,7 +82,7 @@ export const feedRouter = router({
       const rows = await ctx.db.query.feedEvents.findMany({
         where: and(
           inArray(feedEvents.actorId, actorIds),
-          notInArray(feedEvents.type, ["followed"]),
+          isEntryEvent,
           input.cursor
             ? lt(feedEvents.createdAt, new Date(input.cursor))
             : undefined
@@ -73,13 +95,12 @@ export const feedRouter = router({
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, -1) : rows;
       const lastItem = items.at(-1);
-      const enriched = await enrichWithReviewBodies(ctx.db, items);
+      const enriched = await enrichWithLikeData(ctx.db, items, ctx.user.id);
 
       return {
         items: enriched,
-        nextCursor: hasMore && lastItem
-          ? lastItem.createdAt.toISOString()
-          : undefined,
+        nextCursor:
+          hasMore && lastItem ? lastItem.createdAt.toISOString() : undefined,
       };
     }),
 
@@ -88,7 +109,7 @@ export const feedRouter = router({
     .query(async ({ input, ctx }) => {
       const rows = await ctx.db.query.feedEvents.findMany({
         where: and(
-          notInArray(feedEvents.type, ["followed"]),
+          isEntryEvent,
           input.cursor
             ? lt(feedEvents.createdAt, new Date(input.cursor))
             : undefined
@@ -101,13 +122,13 @@ export const feedRouter = router({
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, -1) : rows;
       const lastItem = items.at(-1);
-      const enriched = await enrichWithReviewBodies(ctx.db, items);
+      const viewerId = ctx.session?.user?.id ?? null;
+      const enriched = await enrichWithLikeData(ctx.db, items, viewerId);
 
       return {
         items: enriched,
-        nextCursor: hasMore && lastItem
-          ? lastItem.createdAt.toISOString()
-          : undefined,
+        nextCursor:
+          hasMore && lastItem ? lastItem.createdAt.toISOString() : undefined,
       };
     }),
 });

@@ -17,7 +17,7 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function upsertArtist(
+export async function upsertArtist(
   ctx: { db: DB },
   artist: SpotifyArtistSimple & { images?: Array<{ url: string }>; genres?: string[]; popularity?: number }
 ) {
@@ -47,7 +47,7 @@ async function upsertArtist(
   return row;
 }
 
-async function upsertAlbum(
+export async function upsertAlbum(
   ctx: { db: DB },
   spotifyAlbum: SpotifyAlbumSimple,
   artistId: string
@@ -81,7 +81,7 @@ async function upsertAlbum(
   return row;
 }
 
-async function upsertTrack(
+export async function upsertTrack(
   ctx: { db: DB },
   spotifyTrack: SpotifyTrackSimple,
   albumId: string,

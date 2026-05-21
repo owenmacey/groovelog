@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatDistanceToNow, format } from "date-fns";
-import { Star, MessageSquare, Calendar, Heart } from "lucide-react";
+import { format } from "date-fns";
+import { BookOpen, Music, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { trpc } from "@/lib/trpc";
 import { formatRating, formatCount } from "@/lib/utils";
-import type { RatedPayload, ReviewedPayload } from "@groovelog/db";
 
 // ── Shared disc placeholder ───────────────────────────────────────────────────
 
@@ -107,10 +106,18 @@ export function UserContent({ username }: { username: string }) {
 
   const { data, isLoading, error } = trpc.user.getProfile.useQuery({ username });
 
-  const activityQuery = trpc.user.getRecentActivity.useQuery(
-    { userId: data?.user.id ?? "", limit: 20 },
-    { enabled: !!data?.user.id }
+  const isOwnProfile = data?.isOwnProfile ?? false;
+
+  // Published entries (8 + 1 to detect overflow)
+  const entriesQuery = trpc.entry.listUserEntries.useQuery(
+    { username, limit: 8 },
+    { enabled: !!data }
   );
+
+  // Draft entries — only for own profile
+  const draftsQuery = trpc.entry.listDrafts.useQuery(undefined, {
+    enabled: isOwnProfile,
+  });
 
   const updateMutation = trpc.user.updateProfile.useMutation({
     onSuccess: () => {
@@ -139,10 +146,10 @@ export function UserContent({ username }: { username: string }) {
     );
   }
 
-  const { user, stats, isFollowing, isOwnProfile } = data;
-  const activity = activityQuery.data?.items ?? [];
-  const recentRatings = activity.filter((e) => e.type === "rated").slice(0, 8);
-  const recentReviews = activity.filter((e) => e.type === "reviewed").slice(0, 5);
+  const { user, stats, isFollowing } = data;
+  const entries = entriesQuery.data?.items ?? [];
+  const hasMoreEntries = !!entriesQuery.data?.nextCursor;
+  const drafts = draftsQuery.data ?? [];
 
   return (
     <PageShell>
@@ -164,7 +171,6 @@ export function UserContent({ username }: { username: string }) {
               )}
             </div>
 
-            {/* Follower / following counts — clickable to open modal */}
             <div className="flex items-center gap-4 text-sm text-text-secondary">
               <button
                 onClick={() => setModal("followers")}
@@ -186,7 +192,6 @@ export function UserContent({ username }: { username: string }) {
               </button>
             </div>
 
-            {/* Action buttons */}
             <div className="flex items-center gap-2">
               {isOwnProfile ? (
                 <Button
@@ -224,25 +229,25 @@ export function UserContent({ username }: { username: string }) {
         {/* ── Stats row ─────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start gap-6 border-t border-border-default pt-6">
           <div className="flex items-start gap-2">
-            <Star className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
+            <BookOpen className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-mono text-2xl font-bold text-text-primary tabular-nums leading-none">
-                {formatCount(stats.ratingCount)}
+                {formatCount(stats.entryCount)}
               </p>
               <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
-                Ratings
+                Entries
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-2">
-            <MessageSquare className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
+            <Music className="h-4 w-4 text-text-tertiary mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-mono text-2xl font-bold text-text-primary tabular-nums leading-none">
-                {formatCount(stats.reviewCount)}
+                {formatCount(stats.tracksRated)}
               </p>
               <p className="text-xs uppercase tracking-widest text-text-tertiary mt-1">
-                Reviews
+                Tracks rated
               </p>
             </div>
           </div>
@@ -271,163 +276,127 @@ export function UserContent({ username }: { username: string }) {
           </div>
         </div>
 
-        {/* ── Recent ratings grid ───────────────────────────────────────── */}
-        {recentRatings.length > 0 && (
+        {/* ── Entries grid ──────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-display text-lg font-semibold text-text-primary">
+              Entries
+            </h2>
+            {hasMoreEntries && (
+              <Link
+                href={`/user/${username}/entries`}
+                className="text-xs text-accent-gold hover:text-accent-amber transition-colors font-medium"
+              >
+                View all entries →
+              </Link>
+            )}
+          </div>
+
+          {entriesQuery.isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="skeleton aspect-square rounded-lg" />
+              ))}
+            </div>
+          ) : entries.length === 0 ? (
+            <p className="text-sm text-text-tertiary py-8 text-center">
+              No published entries yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {entries.map((entry) => (
+                <Link
+                  key={entry.id}
+                  href={`/entry/${entry.id}`}
+                  className="group block"
+                  title={entry.album.title}
+                >
+                  <div className="rounded-lg overflow-hidden bg-bg-elevated border border-border-default">
+                    <div className="relative aspect-square overflow-hidden">
+                      {entry.album.coverUrl ? (
+                        <img
+                          src={entry.album.coverUrl}
+                          alt={entry.album.title}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <DiscPlaceholder className="h-full w-full" />
+                      )}
+
+                      {/* Rating overlay */}
+                      {entry.overallRating !== null && entry.overallRating !== undefined && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-base/90 to-transparent pt-6 pb-1.5 px-2">
+                          <HalfStarRating
+                            value={entry.overallRating}
+                            readOnly
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-2 space-y-0.5">
+                      <p className="text-xs font-medium text-text-primary truncate leading-tight">
+                        {entry.album.title}
+                      </p>
+                      <p className="text-xs text-text-tertiary truncate">
+                        {entry.album.artist.name}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── Drafts (own profile only) ─────────────────────────────────── */}
+        {isOwnProfile && drafts.length > 0 && (
           <section>
             <h2 className="font-display text-lg font-semibold text-text-primary mb-3">
-              Recent Ratings
+              Drafts
             </h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {recentRatings.map((event) => {
-                const p = event.payload as RatedPayload;
-                const href = `/${p.targetType}/${p.spotifyId ?? p.targetId}`;
-                return (
-                  <Link
-                    key={event.id}
-                    href={href}
-                    className="group block"
-                    title={p.title}
-                  >
-                    <div className="rounded-lg overflow-hidden bg-bg-elevated border border-border-default">
-                      {/* Cover art */}
-                      <div className="relative aspect-square overflow-hidden">
-                        {p.coverUrl ? (
-                          <img
-                            src={p.coverUrl}
-                            alt={p.title}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <DiscPlaceholder className="h-full w-full bg-bg-elevated" />
-                        )}
-
-                        {/* Gold hover overlay */}
-                        <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/20 transition-colors duration-200 flex items-center justify-center">
-                          <span className="font-mono text-2xl font-bold text-white drop-shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            {formatRating(p.rating)}
-                          </span>
-                        </div>
-
-                        {/* Static rating badge — hidden on hover */}
-                        <div className="absolute bottom-1.5 right-1.5 bg-bg-base/90 rounded px-1 py-0.5 shadow-sm group-hover:opacity-0 transition-opacity">
-                          <span className="font-mono text-xs font-bold text-accent-gold">
-                            {formatRating(p.rating)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Info below cover */}
-                      <div className="p-2 space-y-0.5">
-                        <p className="text-xs font-medium text-text-primary truncate leading-tight">
-                          {p.title}
-                        </p>
-                        {"artistName" in event && event.artistName ? (
-                          <p className="text-xs text-text-tertiary truncate">
-                            {event.artistName as string}
-                          </p>
-                        ) : null}
-                        <HalfStarRating
-                          value={p.rating}
-                          readOnly
-                          size="sm"
-                          className="mt-1"
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {drafts.map((draft) => (
+                <Link
+                  key={draft.id}
+                  href={`/album/${draft.album.spotifyId}?log=1`}
+                  className="group block"
+                  title={draft.album.title}
+                >
+                  <div className="rounded-lg overflow-hidden bg-bg-elevated border border-border-default">
+                    <div className="relative aspect-square overflow-hidden">
+                      {draft.album.coverUrl ? (
+                        <img
+                          src={draft.album.coverUrl}
+                          alt={draft.album.title}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-60"
                         />
+                      ) : (
+                        <DiscPlaceholder className="h-full w-full" />
+                      )}
+
+                      <div className="absolute top-1.5 left-1.5">
+                        <span className="text-xs font-mono bg-bg-base/90 text-text-secondary px-1.5 py-0.5 rounded border border-border-default">
+                          Draft
+                        </span>
                       </div>
                     </div>
-                  </Link>
-                );
-              })}
+
+                    <div className="p-2 space-y-0.5">
+                      <p className="text-xs font-medium text-text-primary truncate leading-tight">
+                        {draft.album.title}
+                      </p>
+                      <p className="text-xs text-text-tertiary truncate">
+                        {draft.album.artist.name}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </section>
         )}
-
-        {/* ── Recent reviews ────────────────────────────────────────────── */}
-        {recentReviews.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="font-display text-lg font-semibold text-text-primary">
-              Recent Reviews
-            </h2>
-            {recentReviews.map((event) => {
-              const p = event.payload as ReviewedPayload;
-              const href = `/${p.targetType}/${p.spotifyId ?? p.targetId}`;
-              const artistName = "artistName" in event ? (event.artistName as string | undefined) : undefined;
-              const reviewBody = "reviewBody" in event ? (event.reviewBody as string | undefined) : undefined;
-              const likeCount = "likeCount" in event ? (event.likeCount as number | undefined) : undefined;
-              return (
-                <div
-                  key={event.id}
-                  className="rounded-lg bg-bg-surface border border-border-default p-4 space-y-3"
-                >
-                  {/* Album header */}
-                  <div className="flex items-start gap-3">
-                    <Link href={href} className="flex-shrink-0 block">
-                      <div className="w-14 h-14 rounded overflow-hidden bg-bg-elevated">
-                        {p.coverUrl ? (
-                          <img
-                            src={p.coverUrl}
-                            alt={p.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <DiscPlaceholder className="w-full h-full" />
-                        )}
-                      </div>
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        href={href}
-                        className="text-sm font-medium text-text-primary hover:text-accent-gold transition-colors line-clamp-1"
-                      >
-                        {p.title}
-                      </Link>
-                      {artistName && (
-                        <p className="text-xs text-text-tertiary mt-0.5">{artistName}</p>
-                      )}
-                      {p.rating != null && (
-                        <HalfStarRating
-                          value={p.rating}
-                          readOnly
-                          size="sm"
-                          showLabel
-                          className="mt-1"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Review body */}
-                  {reviewBody && (
-                    <p className="text-sm text-text-primary leading-relaxed line-clamp-3 whitespace-pre-line">
-                      {reviewBody}
-                    </p>
-                  )}
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between pt-1 border-t border-border-default">
-                    <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                      <Heart className="h-3.5 w-3.5" />
-                      <span>{formatCount(likeCount ?? 0)}</span>
-                    </div>
-                    <time className="text-xs text-text-tertiary">
-                      {formatDistanceToNow(new Date(event.createdAt), {
-                        addSuffix: true,
-                      })}
-                    </time>
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {/* ── Empty state ───────────────────────────────────────────────── */}
-        {recentRatings.length === 0 &&
-          recentReviews.length === 0 &&
-          !activityQuery.isLoading && (
-            <p className="text-sm text-text-tertiary text-center py-8">
-              No activity yet.
-            </p>
-          )}
       </div>
 
       {/* ── Followers / following modal ───────────────────────────────── */}

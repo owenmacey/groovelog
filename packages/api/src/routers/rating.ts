@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { eq, and, sql } from "drizzle-orm";
-import { ratings, albums, tracks, feedEvents } from "@groovelog/db";
-import type { DB, RatedPayload } from "@groovelog/db";
+import { ratings } from "@groovelog/db";
 import {
   upsertRatingSchema,
   deleteRatingSchema,
@@ -24,32 +23,6 @@ async function checkRateLimit(
       message: "Too many requests — slow down",
     });
   }
-}
-
-async function getTargetTitle(
-  db: DB,
-  targetType: "album" | "track",
-  targetId: string
-): Promise<{ title: string; coverUrl: string | null; spotifyId: string }> {
-  if (targetType === "album") {
-    const row = await db.query.albums.findFirst({
-      where: eq(albums.id, targetId),
-    });
-    return {
-      title: row?.title ?? "Unknown",
-      coverUrl: row?.coverUrl ?? null,
-      spotifyId: row?.spotifyId ?? "",
-    };
-  }
-  const row = await db.query.tracks.findFirst({
-    where: eq(tracks.id, targetId),
-    with: { album: true },
-  });
-  return {
-    title: row?.title ?? "Unknown",
-    coverUrl: row?.album?.coverUrl ?? null,
-    spotifyId: row?.spotifyId ?? "",
-  };
 }
 
 export const ratingRouter = router({
@@ -95,53 +68,6 @@ export const ratingRouter = router({
       }
 
       if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-
-      // Feed event — non-blocking: failure here must not fail the rating
-      try {
-        const { title, coverUrl, spotifyId } = await getTargetTitle(
-          ctx.db,
-          input.targetType,
-          input.targetId
-        );
-
-        const newPayload: RatedPayload = {
-          targetType: input.targetType,
-          targetId: input.targetId,
-          spotifyId,
-          rating: input.rating,
-          title,
-          coverUrl,
-        };
-
-        // Find an existing rated event for this user + target to avoid spam
-        const [existing] = await ctx.db
-          .select({ id: feedEvents.id })
-          .from(feedEvents)
-          .where(
-            and(
-              eq(feedEvents.actorId, ctx.user.id),
-              eq(feedEvents.type, "rated"),
-              sql`${feedEvents.payload}->>'targetId' = ${input.targetId}`
-            )
-          )
-          .limit(1);
-
-        if (existing) {
-          await ctx.db
-            .update(feedEvents)
-            .set({ createdAt: new Date(), payload: { ...newPayload, isRerate: true } })
-            .where(eq(feedEvents.id, existing.id));
-          console.log("[rating.upsert] feedEvent updated (rerate):", existing.id);
-        } else {
-          const [feedRow] = await ctx.db
-            .insert(feedEvents)
-            .values({ actorId: ctx.user.id, type: "rated", payload: newPayload })
-            .returning({ id: feedEvents.id });
-          console.log("[rating.upsert] feedEvent inserted:", feedRow?.id);
-        }
-      } catch (e) {
-        console.error("[rating.upsert] feedEvent insertion failed (rating still saved):", e);
-      }
 
       return row;
     }),
