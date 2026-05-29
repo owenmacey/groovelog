@@ -17,15 +17,6 @@ export function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const spotifyMutation = trpc.auth.loginWithSpotify.useMutation({
-    onSuccess: (data) => {
-      window.location.href = data.url;
-    },
-    onError: () => {
-      toast.error("Failed to start Spotify sign-in");
-    },
-  });
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -94,26 +85,6 @@ export function LoginForm() {
           Sign in
         </Button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border-default" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-bg-surface px-2 text-xs text-text-tertiary">or</span>
-        </div>
-      </div>
-
-      <Button
-        variant="secondary"
-        className="w-full"
-        size="lg"
-        onClick={() => spotifyMutation.mutate()}
-        loading={spotifyMutation.isPending}
-        type="button"
-      >
-        Continue with Spotify
-      </Button>
 
       <p className="text-center text-sm text-text-secondary">
         Don&apos;t have an account?{" "}

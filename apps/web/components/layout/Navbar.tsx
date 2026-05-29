@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, Menu, X, Rss, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -35,9 +36,19 @@ export function Navbar() {
           <Link
             href="/"
             onClick={closeMenu}
-            className="font-display text-xl font-semibold text-text-primary hover:text-accent-gold transition-colors shrink-0"
+            className="shrink-0 flex items-center gap-2.5 opacity-90 hover:opacity-100 transition-opacity"
           >
-            Groovelog
+            <Image
+              src="/logo.png"
+              alt=""
+              height={32}
+              width={32}
+              unoptimized
+              priority
+            />
+            <span className="font-display text-xl font-semibold text-text-primary">
+              Groovelog
+            </span>
           </Link>
 
           {/* Desktop nav links */}

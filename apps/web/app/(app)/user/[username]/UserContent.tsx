@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { BookOpen, Music, Calendar } from "lucide-react";
+import { BookOpen, Music, Calendar, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
@@ -44,6 +44,30 @@ function EditProfileForm({
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [bio, setBio] = useState(initial.bio);
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload/avatar", { method: "POST", body: fd });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setAvatarUrl(data.url ?? "");
+      toast.success("Photo uploaded — click Save to apply");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  const initial0 = initial.displayName.charAt(0).toUpperCase();
 
   return (
     <form
@@ -60,6 +84,42 @@ function EditProfileForm({
       <h2 className="font-display text-base font-semibold text-text-primary">
         Edit Profile
       </h2>
+
+      {/* ── Avatar upload ────────────────────────────────────────────── */}
+      <div className="flex items-center gap-4">
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="Avatar preview"
+            className="h-16 w-16 rounded-full object-cover border border-border-default flex-shrink-0"
+          />
+        ) : (
+          <div className="h-16 w-16 rounded-full bg-bg-elevated border border-border-default flex items-center justify-center text-xl font-medium text-text-secondary flex-shrink-0">
+            {initial0}
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            loading={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Camera className="h-3.5 w-3.5" />
+            Upload Photo
+          </Button>
+          <p className="text-xs text-text-tertiary">JPG, PNG or WebP · max 5 MB</p>
+        </div>
+      </div>
+
       <Input
         label="Display name"
         value={displayName}
@@ -77,18 +137,11 @@ function EditProfileForm({
           className="w-full resize-none rounded-md bg-bg-elevated border border-border-default px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-gold"
         />
       </div>
-      <Input
-        label="Avatar URL"
-        value={avatarUrl}
-        onChange={(e) => setAvatarUrl(e.target.value)}
-        placeholder="https://…"
-        type="url"
-      />
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" loading={isPending}>
+        <Button type="submit" size="sm" loading={isPending} disabled={isUploading}>
           Save
         </Button>
       </div>

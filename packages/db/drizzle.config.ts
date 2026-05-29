@@ -1,7 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 import { config } from "dotenv";
 
-config({ path: "../../.env.local" });
+// Load local first (packages/db/.env.local), then root — same order as db/src/index.ts.
+// This means the local postgres credentials win over whatever is in the root file.
+config({ path: ".env.local" });
+config({ path: "../../.env.local", override: false });
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!databaseUrl) {

@@ -185,3 +185,25 @@ img {
   pointer-events: none;
   z-index: 0;
 }
+
+/* Vinyl record slow spin — landing hero */
+@keyframes vinylSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.vinyl-spin {
+  animation: vinylSpin 24s linear infinite;
+}
+
+/* Floating music notes — landing hero */
+@keyframes floatNote {
+  0%   { transform: translateY(0) rotate(-8deg); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 0.5; }
+  100% { transform: translateY(-130px) rotate(12deg); opacity: 0; }
+}
+
+.float-note-1 { animation: floatNote 7s ease-in-out infinite; animation-delay: 0s; }
+.float-note-2 { animation: floatNote 8s ease-in-out infinite; animation-delay: 2.5s; }
+.float-note-3 { animation: floatNote 9s ease-in-out infinite; animation-delay: 5s; }

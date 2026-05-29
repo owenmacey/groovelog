@@ -508,6 +508,44 @@ export const entryRouter = router({
     });
   }),
 
+  /** Top 3 published entries by like count, for the landing page. */
+  getFeaturedEntries: publicProcedure
+    .query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({
+          entryId: albumEntries.id,
+          likeCount: sql<number>`COUNT(${entryLikes.entryId})::int`,
+        })
+        .from(albumEntries)
+        .innerJoin(entryLikes, eq(entryLikes.entryId, albumEntries.id))
+        .where(eq(albumEntries.status, "published"))
+        .groupBy(albumEntries.id)
+        .orderBy(desc(sql<number>`COUNT(${entryLikes.entryId})`))
+        .limit(3);
+
+      const results = await Promise.all(
+        rows.map(async ({ entryId, likeCount }) => {
+          const entry = await ctx.db.query.albumEntries.findFirst({
+            where: eq(albumEntries.id, entryId),
+            with: {
+              album: { with: { artist: true } },
+              user: {
+                columns: {
+                  id: true,
+                  username: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          });
+          return entry ? { ...entry, likeCount } : null;
+        })
+      );
+
+      return results.filter((r): r is NonNullable<typeof r> => r !== null);
+    }),
+
   /** Toggles a like on a published entry. Returns the new liked state. */
   like: protectedProcedure
     .input(likeEntrySchema)
