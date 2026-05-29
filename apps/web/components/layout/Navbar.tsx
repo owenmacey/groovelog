@@ -49,6 +49,9 @@ export function Navbar() {
             <span className="font-display text-xl font-semibold text-text-primary">
               Groovelog
             </span>
+            <span className="text-[10px] font-body tracking-wide text-text-tertiary leading-none">
+              beta
+            </span>
           </Link>
 
           {/* Desktop nav links */}

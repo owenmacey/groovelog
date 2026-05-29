@@ -90,8 +90,15 @@ export default function LandingPage() {
           </span>
         </div>
 
+        {/* Beta label */}
+        <div className="animate-in stagger-1 relative z-10 mb-5">
+          <span className="text-xs tracking-widest uppercase text-text-tertiary opacity-50">
+            Public Beta
+          </span>
+        </div>
+
         {/* Title */}
-        <div className="animate-in stagger-1 relative z-10 mb-6">
+        <div className="animate-in stagger-2 relative z-10 mb-6">
           <h1
             className="font-display text-7xl sm:text-8xl font-bold text-text-primary leading-none tracking-tight"
             style={{ textShadow: "0 0 120px rgba(214, 160, 64, 0.3)" }}
@@ -101,7 +108,7 @@ export default function LandingPage() {
         </div>
 
         {/* Tagline */}
-        <div className="animate-in stagger-2 relative z-10 mb-10">
+        <div className="animate-in stagger-3 relative z-10 mb-10">
           <p className="text-xl sm:text-2xl text-text-secondary leading-relaxed">
             Rate albums.{" "}
             <span className="text-text-tertiary">Write reviews.</span>
@@ -111,7 +118,7 @@ export default function LandingPage() {
         </div>
 
         {/* CTAs */}
-        <div className="animate-in stagger-3 flex items-center gap-3 relative z-10">
+        <div className="animate-in stagger-4 flex items-center gap-3 relative z-10">
           <Link
             href="/register"
             className="inline-flex items-center justify-center h-11 px-7 text-base rounded-md bg-accent-gold text-text-inverse font-medium hover:bg-accent-amber transition-colors"
