@@ -26,6 +26,7 @@ import { protectedProcedure, publicProcedure, router } from "../trpc";
 import { getSpotifyClient } from "../lib/spotify";
 import { upsertAlbum, upsertArtist, upsertTrack } from "./catalog";
 import type { SpotifyTrackSimple } from "../lib/spotify";
+import { checkContent } from "../lib/moderation";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -191,6 +192,13 @@ export const entryRouter = router({
     .mutation(async ({ input, ctx }) => {
       await assertOwner(ctx.db, input.entryId, ctx.user.id);
 
+      if (input.reviewBody != null && !checkContent(input.reviewBody)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your review contains inappropriate content",
+        });
+      }
+
       const updateData: Partial<typeof albumEntries.$inferInsert> = {
         updatedAt: new Date(),
       };
@@ -289,6 +297,13 @@ export const entryRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Add a rating, review, or track ratings before publishing",
+        });
+      }
+
+      if (entry.reviewBody && !checkContent(entry.reviewBody)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your review contains inappropriate content",
         });
       }
 

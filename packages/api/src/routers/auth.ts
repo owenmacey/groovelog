@@ -6,6 +6,7 @@ import { users, accounts } from "@groovelog/db";
 import { registerSchema, loginSchema } from "@groovelog/validators";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 import { getAuth } from "../lib/auth";
+import { checkContent } from "../lib/moderation";
 
 export const authRouter = router({
   // Register creates the user + credential account manually so we can store username.
@@ -13,6 +14,14 @@ export const authRouter = router({
   register: publicProcedure
     .input(registerSchema)
     .mutation(async ({ input, ctx }) => {
+      // Username content check
+      if (!checkContent(input.username)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Username contains inappropriate content",
+        });
+      }
+
       // Username uniqueness check
       const existingUsername = await ctx.db.query.users.findFirst({
         where: eq(users.username, input.username),

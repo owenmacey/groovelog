@@ -2,9 +2,12 @@ import { z } from "zod";
 
 export const usernameSchema = z
   .string()
-  .min(3)
-  .max(30)
-  .regex(/^[a-zA-Z0-9_]+$/, "Username may only contain letters, numbers, and underscores");
+  .min(3, "Username must be at least 3 characters")
+  .max(30, "Username must be 30 characters or fewer")
+  .regex(
+    /^[a-zA-Z0-9._]+$/,
+    "Username may only contain letters, numbers, underscores, and periods"
+  );
 
 export const registerSchema = z.object({
   email: z.string().email(),
