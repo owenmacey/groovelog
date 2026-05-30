@@ -3,16 +3,30 @@ import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
 import { Toaster } from "sonner";
 
+const BASE_URL = process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: {
     default: "Groovelog",
     template: "%s — Groovelog",
   },
-  description: "Your music, rated. Your taste, shared.",
+  description: "Rate albums. Write reviews. Share your taste.",
   icons: { icon: "/logo.png" },
-  metadataBase: new URL(
-    process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000"
-  ),
+  openGraph: {
+    type: "website",
+    siteName: "Groovelog",
+    title: "Groovelog",
+    description: "Rate albums. Write reviews. Share your taste.",
+    url: BASE_URL,
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Groovelog" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Groovelog",
+    description: "Rate albums. Write reviews. Share your taste.",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({

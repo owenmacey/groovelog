@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Menu, X, Rss, Users } from "lucide-react";
+import { Search, Menu, X, Rss, Users, PenLine } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { UserAvatar } from "@/components/social/UserAvatar";
 import { Button } from "@/components/ui/Button";
@@ -68,6 +68,12 @@ export function Navbar() {
               <Users className="h-3.5 w-3.5" />
               People
             </NavLink>
+            {user && (
+              <NavLink href="/drafts">
+                <PenLine className="h-3.5 w-3.5" />
+                Drafts
+              </NavLink>
+            )}
           </nav>
 
           {/* Right side */}
@@ -136,6 +142,12 @@ export function Navbar() {
               <MobileNavLink href={`/user/${user.username}`} onClick={closeMenu}>
                 <UserAvatar user={user} size="xs" />
                 Profile
+              </MobileNavLink>
+            )}
+            {user && (
+              <MobileNavLink href="/drafts" onClick={closeMenu}>
+                <PenLine className="h-4 w-4 shrink-0" />
+                Drafts
               </MobileNavLink>
             )}
 

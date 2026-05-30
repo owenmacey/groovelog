@@ -167,11 +167,6 @@ export function UserContent({ username }: { username: string }) {
     { enabled: !!data }
   );
 
-  // Draft entries — only for own profile
-  const draftsQuery = trpc.entry.listDrafts.useQuery(undefined, {
-    enabled: isOwnProfile,
-  });
-
   const updateMutation = trpc.user.updateProfile.useMutation({
     onSuccess: () => {
       setIsEditing(false);
@@ -202,7 +197,6 @@ export function UserContent({ username }: { username: string }) {
   const { user, stats, isFollowing } = data;
   const entries = entriesQuery.data?.items ?? [];
   const hasMoreEntries = !!entriesQuery.data?.nextCursor;
-  const drafts = draftsQuery.data ?? [];
 
   return (
     <PageShell>
@@ -403,53 +397,6 @@ export function UserContent({ username }: { username: string }) {
           )}
         </section>
 
-        {/* ── Drafts (own profile only) ─────────────────────────────────── */}
-        {isOwnProfile && drafts.length > 0 && (
-          <section>
-            <h2 className="font-display text-lg font-semibold text-text-primary mb-3">
-              Drafts
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {drafts.map((draft) => (
-                <Link
-                  key={draft.id}
-                  href={`/album/${draft.album.spotifyId}?log=1`}
-                  className="group block"
-                  title={draft.album.title}
-                >
-                  <div className="rounded-lg overflow-hidden bg-bg-elevated border border-border-default">
-                    <div className="relative aspect-square overflow-hidden">
-                      {draft.album.coverUrl ? (
-                        <img
-                          src={draft.album.coverUrl}
-                          alt={draft.album.title}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-60"
-                        />
-                      ) : (
-                        <DiscPlaceholder className="h-full w-full" />
-                      )}
-
-                      <div className="absolute top-1.5 left-1.5">
-                        <span className="text-xs font-mono bg-bg-base/90 text-text-secondary px-1.5 py-0.5 rounded border border-border-default">
-                          Draft
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-2 space-y-0.5">
-                      <p className="text-xs font-medium text-text-primary truncate leading-tight">
-                        {draft.album.title}
-                      </p>
-                      <p className="text-xs text-text-tertiary truncate">
-                        {draft.album.artist.name}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
 
       {/* ── Followers / following modal ───────────────────────────────── */}

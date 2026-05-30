@@ -4,7 +4,11 @@
       "Bash(pnpm *)",
       "Bash(Get-ChildItem -Recurse -Filter \"*.tsx\" \"C:/Users/17052/Documents/GitHub/groovelog/apps/web/app\")",
       "Bash(Select-Object FullName)",
-      "Bash(node -e \"const pkg = require\\('./apps/web/package.json'\\); console.log\\(pkg.dependencies.next || pkg.devDependencies.next\\)\")"
+      "Bash(node -e \"const pkg = require\\('./apps/web/package.json'\\); console.log\\(pkg.dependencies.next || pkg.devDependencies.next\\)\")",
+      "Bash(xargs grep -l \"updateProfile\\\\|settings\\\\|edit.*profile\")",
+      "Bash(git -C \"C:/Users/17052/Documents/GitHub/groovelog\" status)",
+      "Bash(git -C \"C:/Users/17052/Documents/GitHub/groovelog\" diff --stat)",
+      "Bash(git *)"
     ]
   }
 }

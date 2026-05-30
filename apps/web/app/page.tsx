@@ -3,8 +3,11 @@ import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { FeaturedReviews } from "./FeaturedReviews";
 
+const BASE_URL = process.env["NEXT_PUBLIC_APP_URL"] ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Groovelog — Your music, rated.",
+  title: "Groovelog — Rate albums. Write reviews. Share your taste.",
+  alternates: { canonical: BASE_URL },
 };
 
 function VinylRecord() {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Search, Rss, User, Users, UserCheck } from "lucide-react";
+import { Home, Search, Rss, User, Users, UserCheck, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -17,7 +17,10 @@ export function Sidebar({ username, className }: SidebarProps) {
         <SidebarLink href="/search?type=people" icon={Users} label="People" />
         <SidebarLink href="/following" icon={UserCheck} label="Following" />
         {username && (
-          <SidebarLink href={`/user/${username}`} icon={User} label="Profile" />
+          <>
+            <SidebarLink href="/drafts" icon={PenLine} label="Drafts" />
+            <SidebarLink href={`/user/${username}`} icon={User} label="Profile" />
+          </>
         )}
       </nav>
     </aside>

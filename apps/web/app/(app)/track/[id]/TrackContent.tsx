@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
@@ -39,8 +40,17 @@ function RatingHistogram({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function TrackContent({ spotifyId }: { spotifyId: string }) {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const { data: me } = trpc.auth.me.useQuery();
+
+  function handleBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
 
   const { data, isLoading, error } = trpc.catalog.getTrack.useQuery({ spotifyId });
 
@@ -112,6 +122,14 @@ export function TrackContent({ spotifyId }: { spotifyId: string }) {
   return (
     <PageShell>
       <div className="space-y-10">
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent-gold transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <div className="flex gap-6 sm:gap-8">
           <div className="flex-shrink-0 w-28 sm:w-40">

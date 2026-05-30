@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { TrackRow } from "@/components/catalog/TrackRow";
 import { Button } from "@/components/ui/Button";
@@ -49,7 +50,16 @@ export function AlbumContent({
   spotifyId: string;
   autoLog?: boolean;
 }) {
+  const router = useRouter();
   const { data: me } = trpc.auth.me.useQuery();
+
+  function handleBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
 
   // Entry editor state
   const [entry, setEntry] = useState<EntryData | null>(null);
@@ -111,6 +121,14 @@ export function AlbumContent({
   return (
     <PageShell>
       <div className="space-y-10">
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent-gold transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <div className="flex gap-6 sm:gap-8">
           {/* Cover art */}
