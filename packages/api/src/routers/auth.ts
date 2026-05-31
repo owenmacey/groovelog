@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users, accounts } from "@groovelog/db";
 import { registerSchema, loginSchema } from "@groovelog/validators";
@@ -48,6 +48,11 @@ export const authRouter = router({
       const userId = createId();
       const displayName = input.displayName ?? input.username;
 
+      const [countRow] = await ctx.db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(users);
+      const isDayOne = (countRow?.count ?? 0) < 100;
+
       await ctx.db.insert(users).values({
         id: userId,
         name: displayName,
@@ -55,6 +60,7 @@ export const authRouter = router({
         emailVerified: false,
         username: input.username,
         displayName,
+        isDayOne,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

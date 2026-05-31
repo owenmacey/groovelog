@@ -8,6 +8,7 @@ import { Heart, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
+import { DayOneBadge } from "@/components/social/DayOneBadge";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
 import { Button } from "@/components/ui/Button";
 import { trpc } from "@/lib/trpc";
@@ -121,9 +122,10 @@ export function EntryContent({ entryId }: { entryId: string }) {
             <div className="min-w-0">
               <Link
                 href={`/user/${entry.user.username}`}
-                className="text-sm font-medium text-text-primary hover:text-accent-gold transition-colors"
+                className="text-sm font-medium text-text-primary hover:text-accent-gold transition-colors inline-flex items-center gap-1.5"
               >
                 {entry.user.displayName}
+                {entry.user.isDayOne && <DayOneBadge />}
               </Link>
               <p className="text-xs text-text-tertiary">
                 @{entry.user.username}

@@ -5,6 +5,7 @@ import { AlbumCard } from "@/components/catalog/AlbumCard";
 import { TrackRow } from "@/components/catalog/TrackRow";
 import { Button } from "@/components/ui/Button";
 import { UserAvatar } from "@/components/social/UserAvatar";
+import { DayOneBadge } from "@/components/social/DayOneBadge";
 import { FollowButton } from "@/components/social/FollowButton";
 import { trpc } from "@/lib/trpc";
 import type { Artist } from "@groovelog/db";
@@ -153,8 +154,9 @@ function PeopleResults({ query }: { query: string }) {
               href={`/user/${user.username}`}
               className="flex-1 min-w-0 hover:opacity-80 transition-opacity"
             >
-              <p className="text-sm font-medium text-text-primary truncate">
+              <p className="text-sm font-medium text-text-primary truncate flex items-center gap-1.5">
                 {user.displayName}
+                {user.isDayOne && <DayOneBadge />}
               </p>
               <p className="text-xs text-text-tertiary truncate">
                 @{user.username}

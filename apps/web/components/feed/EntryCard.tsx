@@ -7,6 +7,7 @@ import { Heart } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { UserAvatar } from "@/components/social/UserAvatar";
+import { DayOneBadge } from "@/components/social/DayOneBadge";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
 import { cn, formatRating, formatCount } from "@/lib/utils";
 import type { FeedEvent, User, EntryPublishedPayload } from "@groovelog/db";
@@ -103,10 +104,11 @@ export function EntryCard({ event }: EntryCardProps) {
             <p className="text-xs text-text-tertiary leading-none">
               <Link
                 href={`/user/${actor.username}`}
-                className="font-medium text-text-secondary hover:text-text-primary transition-colors relative z-10"
+                className="font-medium text-text-secondary hover:text-text-primary transition-colors relative z-10 inline-flex items-center gap-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 {actor.displayName}
+                {actor.isDayOne && <DayOneBadge />}
               </Link>
               {" · "}
               {verb}

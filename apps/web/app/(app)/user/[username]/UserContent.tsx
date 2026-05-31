@@ -7,6 +7,7 @@ import { BookOpen, Music, Calendar, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/PageShell";
 import { UserAvatar } from "@/components/social/UserAvatar";
+import { DayOneBadge } from "@/components/social/DayOneBadge";
 import { FollowButton } from "@/components/social/FollowButton";
 import { UserListModal } from "@/components/social/UserListModal";
 import { HalfStarRating } from "@/components/rating/HalfStarRating";
@@ -209,6 +210,11 @@ export function UserContent({ username }: { username: string }) {
             <div>
               <h1 className="font-display text-2xl font-bold text-text-primary leading-tight">
                 {user.displayName}
+                {user.isDayOne && (
+                  <span className="inline-block align-middle ml-2 -mt-1">
+                    <DayOneBadge size="md" />
+                  </span>
+                )}
               </h1>
               <p className="text-sm text-text-tertiary mt-0.5">@{user.username}</p>
               {user.bio && (

@@ -246,6 +246,7 @@ export const userRouter = router({
           username: users.username,
           displayName: users.displayName,
           avatarUrl: users.avatarUrl,
+          isDayOne: users.isDayOne,
         })
         .from(users)
         .where(

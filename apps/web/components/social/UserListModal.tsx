@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { UserAvatar } from "@/components/social/UserAvatar";
+import { DayOneBadge } from "@/components/social/DayOneBadge";
 import { FollowButton } from "@/components/social/FollowButton";
 import { Button } from "@/components/ui/Button";
 import { trpc } from "@/lib/trpc";
@@ -152,6 +153,7 @@ type UserItem = {
   displayName: string;
   avatarUrl: string | null;
   isFollowing: boolean;
+  isDayOne: boolean;
 };
 
 function UserRows({
@@ -178,8 +180,9 @@ function UserRows({
             <UserAvatar user={user} size="sm" />
           </Link>
           <Link href={`/user/${user.username}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
-            <p className="text-sm font-medium text-text-primary truncate leading-snug">
+            <p className="text-sm font-medium text-text-primary truncate leading-snug flex items-center gap-1.5">
               {user.displayName}
+              {user.isDayOne && <DayOneBadge />}
             </p>
             <p className="text-xs text-text-tertiary truncate">@{user.username}</p>
           </Link>
