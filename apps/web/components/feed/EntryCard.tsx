@@ -137,15 +137,32 @@ export function EntryCard({ event }: EntryCardProps) {
             </div>
           )}
 
-          {/* Review snippet — 3-line clamp with fade */}
-          {payload.reviewSnippet && (
-            <div className="relative mb-1.5 overflow-hidden">
-              <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
-                {payload.reviewSnippet}
+          {/* Review snippet — word-boundary truncation with Read more */}
+          {payload.reviewSnippet && (() => {
+            const MAX = 200;
+            const full = payload.reviewSnippet;
+            const needsTrunc = full.length > MAX;
+            const displayed = needsTrunc
+              ? full.slice(0, full.lastIndexOf(" ", MAX) || MAX)
+              : full;
+            return (
+              <p className="text-xs text-text-secondary leading-relaxed mb-1.5">
+                {displayed}
+                {needsTrunc && (
+                  <>
+                    {"… "}
+                    <Link
+                      href={entryHref}
+                      className="text-accent-gold hover:text-accent-amber transition-colors relative z-10 font-medium"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Read more
+                    </Link>
+                  </>
+                )}
               </p>
-              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-bg-base to-transparent pointer-events-none" />
-            </div>
-          )}
+            );
+          })()}
 
           {/* Track rating count + like button */}
           <div className="flex items-center gap-3 mt-1">

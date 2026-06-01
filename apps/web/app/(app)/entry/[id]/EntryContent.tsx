@@ -113,6 +113,22 @@ export function EntryContent({ entryId }: { entryId: string }) {
     <PageShell>
       <div className="max-w-2xl mx-auto space-y-8">
 
+        {/* ── Back button ────────────────────────────────────────────────── */}
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/feed");
+            }
+          }}
+          className="flex items-center gap-1.5 text-sm text-text-tertiary hover:text-accent-gold transition-colors"
+        >
+          <span aria-hidden="true">←</span>
+          Back to feed
+        </button>
+
         {/* ── Author header ──────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
