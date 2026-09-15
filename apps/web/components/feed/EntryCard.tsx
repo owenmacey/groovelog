@@ -29,6 +29,9 @@ export function EntryCard({ event }: EntryCardProps) {
   const [liked, setLiked] = useState(initialIsLiked);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
 
+  // Server caps reviewSnippet at 200 chars — if it hits the cap, the full review is longer
+  const isReviewTruncated = (payload.reviewSnippet?.length ?? 0) >= 200;
+
   const { data: me } = trpc.auth.me.useQuery();
 
   const likeMutation = trpc.entry.like.useMutation({
@@ -46,6 +49,7 @@ export function EntryCard({ event }: EntryCardProps) {
 
   const verb = type === "entry_updated" ? "updated their log" : "logged";
   const entryHref = `/entry/${payload.entryId}`;
+  const albumHref = payload.albumSpotifyId ? `/album/${payload.albumSpotifyId}` : null;
 
   const trackLabel =
     payload.trackRatingCount > 0
@@ -66,28 +70,45 @@ export function EntryCard({ event }: EntryCardProps) {
       <div className="flex gap-4">
         {/* Album cover — ~80px */}
         <div className="flex-shrink-0 w-20 h-20 relative z-10">
-          <div className="w-full h-full rounded-md overflow-hidden bg-bg-elevated shadow-card">
-            {payload.coverUrl ? (
-              <img
-                src={payload.coverUrl}
-                alt={payload.albumTitle}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-text-tertiary">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-8 h-8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1}
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </div>
-            )}
-          </div>
+          {albumHref ? (
+            <Link
+              href={albumHref}
+              className="block w-full h-full rounded-md overflow-hidden bg-bg-elevated shadow-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {payload.coverUrl ? (
+                <img
+                  src={payload.coverUrl}
+                  alt={payload.albumTitle}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-text-tertiary">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1}>
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+              )}
+            </Link>
+          ) : (
+            <div className="w-full h-full rounded-md overflow-hidden bg-bg-elevated shadow-card">
+              {payload.coverUrl ? (
+                <img
+                  src={payload.coverUrl}
+                  alt={payload.albumTitle}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-text-tertiary">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={1}>
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -120,9 +141,19 @@ export function EntryCard({ event }: EntryCardProps) {
           </div>
 
           {/* Album title + artist */}
-          <p className="font-display font-semibold text-text-primary text-sm leading-snug truncate">
-            {payload.albumTitle}
-          </p>
+          {albumHref ? (
+            <Link
+              href={albumHref}
+              className="font-display font-semibold text-text-primary text-sm leading-snug truncate block hover:text-accent-gold transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {payload.albumTitle}
+            </Link>
+          ) : (
+            <p className="font-display font-semibold text-text-primary text-sm leading-snug truncate">
+              {payload.albumTitle}
+            </p>
+          )}
           <p className="text-xs text-text-tertiary truncate mb-1.5">
             {payload.artistName}
           </p>
@@ -137,14 +168,25 @@ export function EntryCard({ event }: EntryCardProps) {
             </div>
           )}
 
-          {/* Review snippet — 3-line clamp with fade */}
+          {/* Review snippet — 3-line clamp with fade + Read more */}
           {payload.reviewSnippet && (
-            <div className="relative mb-1.5 overflow-hidden">
-              <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
-                {payload.reviewSnippet}
-              </p>
-              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-bg-base to-transparent pointer-events-none" />
-            </div>
+            <Link
+              href={entryHref}
+              className="block mb-1.5 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative overflow-hidden">
+                <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
+                  {payload.reviewSnippet}
+                </p>
+                {isReviewTruncated && (
+                  <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-bg-base to-transparent pointer-events-none" />
+                )}
+              </div>
+              {isReviewTruncated && (
+                <span className="text-xs text-accent-gold hover:underline">Read more</span>
+              )}
+            </Link>
           )}
 
           {/* Track rating count + like button */}

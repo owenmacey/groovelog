@@ -341,6 +341,7 @@ export const entryRouter = router({
           const payload: EntryPublishedPayload = {
             entryId: input.entryId,
             albumId: entry.albumId,
+            albumSpotifyId: albumRow.spotifyId,
             albumTitle: albumRow.title,
             artistName: albumRow.artist.name,
             coverUrl: albumRow.coverUrl,

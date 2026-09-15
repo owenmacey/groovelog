@@ -47,6 +47,7 @@ export type ListedPayload = {
 export type EntryPublishedPayload = {
   entryId: string;
   albumId: string;
+  albumSpotifyId?: string;
   albumTitle: string;
   artistName: string;
   coverUrl: string | null;

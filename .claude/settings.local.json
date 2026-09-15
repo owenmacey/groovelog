@@ -8,7 +8,10 @@
       "Bash(xargs grep -l \"updateProfile\\\\|settings\\\\|edit.*profile\")",
       "Bash(git -C \"C:/Users/17052/Documents/GitHub/groovelog\" status)",
       "Bash(git -C \"C:/Users/17052/Documents/GitHub/groovelog\" diff --stat)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(Get-ChildItem -Recurse -Directory)",
+      "Bash(Select-Object -First 30)",
+      "Bash(npx drizzle-kit *)"
     ]
   }
 }
