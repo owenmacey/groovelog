@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, sql } from "drizzle-orm";
 import {
   albumEntries,
   albums,
@@ -449,7 +449,7 @@ export const entryRouter = router({
     .query(async ({ input, ctx }) => {
       const [user, album] = await Promise.all([
         ctx.db.query.users.findFirst({
-          where: eq(users.username, input.username),
+          where: ilike(users.username, input.username),
           columns: { id: true },
         }),
         ctx.db.query.albums.findFirst({
@@ -478,7 +478,7 @@ export const entryRouter = router({
     .input(listUserEntriesSchema)
     .query(async ({ input, ctx }) => {
       const user = await ctx.db.query.users.findFirst({
-        where: eq(users.username, input.username),
+        where: ilike(users.username, input.username),
         columns: { id: true },
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });

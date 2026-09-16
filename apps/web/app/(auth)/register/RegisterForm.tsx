@@ -6,6 +6,7 @@ import Link from "next/link";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { displayNameSchema } from "@groovelog/validators";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9._]+$/;
 
@@ -87,13 +88,24 @@ export function RegisterForm() {
       setFieldErrors((prev) => ({ ...prev, username: usernameErr }));
       return;
     }
+    const trimmedDisplayName = displayName.trim();
+    if (trimmedDisplayName) {
+      const result = displayNameSchema.safeParse(trimmedDisplayName);
+      if (!result.success) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          displayName: result.error.errors[0]?.message ?? "Invalid display name",
+        }));
+        return;
+      }
+    }
     setFieldErrors({});
     setFormError(null);
     registerMutation.mutate({
       email,
       username,
       password,
-      displayName: displayName.trim() || undefined,
+      displayName: trimmedDisplayName || undefined,
     });
   }
 
@@ -132,9 +144,14 @@ export function RegisterForm() {
           label="Display name"
           type="text"
           value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
+          onChange={(e) => {
+            setDisplayName(e.target.value);
+            setFieldErrors((prev) => ({ ...prev, displayName: "" }));
+          }}
           placeholder="Optional — defaults to username"
           autoComplete="name"
+          maxLength={100}
+          error={fieldErrors["displayName"] || undefined}
         />
         <Input
           label="Password"

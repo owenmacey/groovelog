@@ -85,6 +85,7 @@ export const users = pgTable("users", {
   bio: text("bio"),
   spotifyId: varchar("spotify_id", { length: 100 }).unique(),
   isDayOne: boolean("is_day_one").default(false).notNull(),
+  usernameChangedAt: timestamp("username_changed_at"),
 });
 
 // ─── Better Auth tables ───────────────────────────────────────────────────────

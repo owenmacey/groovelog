@@ -7,15 +7,17 @@ import {
   getPaginatedSchema,
   updateProfileSchema,
   searchUsersSchema,
+  changeUsernameSchema,
 } from "@groovelog/validators";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
+import { checkContent } from "../lib/moderation";
 
 export const userRouter = router({
   getProfile: publicProcedure
     .input(getUserProfileSchema)
     .query(async ({ input, ctx }) => {
       const user = await ctx.db.query.users.findFirst({
-        where: eq(users.username, input.username),
+        where: ilike(users.username, input.username),
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
 
@@ -218,6 +220,13 @@ export const userRouter = router({
   updateProfile: protectedProcedure
     .input(updateProfileSchema)
     .mutation(async ({ input, ctx }) => {
+      if (input.displayName !== undefined && !checkContent(input.displayName)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Display name contains inappropriate content",
+        });
+      }
+
       const set: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
       if (input.displayName !== undefined) set.displayName = input.displayName;
       if (input.bio !== undefined) set.bio = input.bio;
@@ -230,6 +239,63 @@ export const userRouter = router({
         .returning();
 
       return updated;
+    }),
+
+  changeUsername: protectedProcedure
+    .input(changeUsernameSchema)
+    .mutation(async ({ input, ctx }) => {
+      const normalizedUsername = input.username.toLowerCase();
+
+      const currentUser = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.user.id),
+        columns: { username: true, usernameChangedAt: true },
+      });
+      if (!currentUser) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (currentUser.usernameChangedAt) {
+        const elapsed = Date.now() - currentUser.usernameChangedAt.getTime();
+        const cooldownMs = 90 * 24 * 60 * 60 * 1000;
+        if (elapsed < cooldownMs) {
+          const nextDate = new Date(currentUser.usernameChangedAt.getTime() + cooldownMs);
+          const formatted = nextDate.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `You can change your username again on ${formatted}.`,
+          });
+        }
+      }
+
+      if (!checkContent(normalizedUsername)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Username contains inappropriate content",
+        });
+      }
+
+      const existing = await ctx.db.query.users.findFirst({
+        where: and(ilike(users.username, normalizedUsername), ne(users.id, ctx.user.id)),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "That username is already taken.",
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(users)
+        .set({ username: normalizedUsername, usernameChangedAt: new Date(), updatedAt: new Date() })
+        .where(eq(users.id, ctx.user.id))
+        .returning({ username: users.username });
+
+      if (!updated) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      return { username: updated.username };
     }),
 
   search: publicProcedure

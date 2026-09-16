@@ -22,6 +22,14 @@ export const authRouter = router({
         });
       }
 
+      // Display name content check (only when explicitly provided)
+      if (input.displayName && !checkContent(input.displayName)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Display name contains inappropriate content",
+        });
+      }
+
       // Username uniqueness check
       const existingUsername = await ctx.db.query.users.findFirst({
         where: eq(users.username, input.username),

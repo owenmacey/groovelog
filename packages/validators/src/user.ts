@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+export const displayNameSchema = z
+  .string()
+  .min(1, "Display name must be at least 1 character")
+  .max(100, "Display name must be 100 characters or fewer")
+  .regex(
+    /^[a-zA-Z0-9._]+$/,
+    "Display name may only contain letters, numbers, underscores, and periods"
+  )
+  .refine(
+    (val) => !/[!@#$%^&*()\-+=\[\]{};':"\\|,<>/?`~ ]/.test(val),
+    { message: "Display name contains an invalid character." }
+  );
+
 export const usernameSchema = z
   .string()
   .min(3, "Username must be at least 3 characters")
@@ -7,13 +20,17 @@ export const usernameSchema = z
   .regex(
     /^[a-zA-Z0-9._]+$/,
     "Username may only contain letters, numbers, underscores, and periods"
+  )
+  .refine(
+    (val) => !/[!@#$%^&*()\-+=\[\]{};':"\\|,<>/?`~ ]/.test(val),
+    { message: "Username contains an invalid character." }
   );
 
 export const registerSchema = z.object({
   email: z.string().email(),
   username: usernameSchema,
   password: z.string().min(8),
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: displayNameSchema.optional(),
 });
 
 export const loginSchema = z.object({
@@ -36,7 +53,7 @@ export const getPaginatedSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: displayNameSchema.optional(),
   bio: z.string().max(500).optional(),
   avatarUrl: z.string().url().optional(),
 });
@@ -50,4 +67,8 @@ export const getRecentActivitySchema = z.object({
 export const searchUsersSchema = z.object({
   query: z.string().min(1),
   cursor: z.number().int().min(0).optional(),
+});
+
+export const changeUsernameSchema = z.object({
+  username: usernameSchema,
 });

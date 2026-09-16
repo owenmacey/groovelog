@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { BookOpen, Music, Calendar, Camera } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +16,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { trpc } from "@/lib/trpc";
 import { formatRating, formatCount } from "@/lib/utils";
+import { UsernameChangeForm } from "@/app/(app)/settings/UsernameChangeForm";
+import { displayNameSchema } from "@groovelog/validators";
 
 // ── Shared disc placeholder ───────────────────────────────────────────────────
 
@@ -43,6 +46,7 @@ function EditProfileForm({
   isPending: boolean;
 }) {
   const [displayName, setDisplayName] = useState(initial.displayName);
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
   const [bio, setBio] = useState(initial.bio);
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl);
   const [isUploading, setIsUploading] = useState(false);
@@ -74,8 +78,17 @@ function EditProfileForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        const trimmed = displayName.trim();
+        if (trimmed) {
+          const result = displayNameSchema.safeParse(trimmed);
+          if (!result.success) {
+            setDisplayNameError(result.error.errors[0]?.message ?? "Invalid display name");
+            return;
+          }
+        }
+        setDisplayNameError(null);
         onSave({
-          displayName: displayName.trim() || undefined,
+          displayName: trimmed || undefined,
           bio: bio.trim() || undefined,
           avatarUrl: avatarUrl.trim() || undefined,
         });
@@ -124,8 +137,12 @@ function EditProfileForm({
       <Input
         label="Display name"
         value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
+        onChange={(e) => {
+          setDisplayName(e.target.value);
+          setDisplayNameError(null);
+        }}
         maxLength={100}
+        error={displayNameError ?? undefined}
       />
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-text-secondary">Bio</label>
@@ -153,6 +170,7 @@ function EditProfileForm({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function UserContent({ username }: { username: string }) {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const { data: me } = trpc.auth.me.useQuery();
   const [isEditing, setIsEditing] = useState(false);
@@ -267,16 +285,26 @@ export function UserContent({ username }: { username: string }) {
 
         {/* ── Edit profile form ─────────────────────────────────────────── */}
         {isEditing && isOwnProfile && (
-          <EditProfileForm
-            initial={{
-              displayName: user.displayName,
-              bio: user.bio ?? "",
-              avatarUrl: user.avatarUrl ?? "",
-            }}
-            onCancel={() => setIsEditing(false)}
-            onSave={(values) => updateMutation.mutate(values)}
-            isPending={updateMutation.isPending}
-          />
+          <div className="space-y-4">
+            <EditProfileForm
+              initial={{
+                displayName: user.displayName,
+                bio: user.bio ?? "",
+                avatarUrl: user.avatarUrl ?? "",
+              }}
+              onCancel={() => setIsEditing(false)}
+              onSave={(values) => updateMutation.mutate(values)}
+              isPending={updateMutation.isPending}
+            />
+            <UsernameChangeForm
+              currentUsername={user.username}
+              usernameChangedAt={me?.usernameChangedAt?.toISOString() ?? null}
+              onSuccess={(newUsername) => {
+                setIsEditing(false);
+                router.push(`/user/${newUsername}`);
+              }}
+            />
+          </div>
         )}
 
         {/* ── Stats row ─────────────────────────────────────────────────── */}
